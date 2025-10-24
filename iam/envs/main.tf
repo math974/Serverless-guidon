@@ -21,7 +21,7 @@ resource "google_project_service" "storage_api" {
 
 # Bucket simple pour les IAM
 resource "google_storage_bucket" "iam_bucket" {
-  name          = "${var.project_id}-iam"
+  name          = "${var.project_id}-sample-iam"
   location      = var.region
   force_destroy = true
   uniform_bucket_level_access = true
