@@ -18,10 +18,10 @@ variable "gateway_id" {
   type        = string
 }
 
-variable "api_config_id" {
-  description = "Identifiant de la config de l'API (ex: v1)"
+variable "api_config_id_prefix" {
+  description = "Préfixe de l'identifiant de la config (ex: v). Un suffixe unique sera généré."
   type        = string
-  default     = "v1"
+  default     = "v"
 }
 
 variable "openapi_spec_path" {
