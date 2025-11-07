@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
 permissions:
   contents: read
   id-token: write
