@@ -61,11 +61,11 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV=prod" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-prod.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/prod.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/prod.tfvars" >> $GITHUB_OUTPUT
           else
             echo "ENV=dev" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-dev.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/dev.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/dev.tfvars" >> $GITHUB_OUTPUT
           fi
 
       - name: Terraform Init (backend ${{ steps.paths.outputs.ENV }})
@@ -123,11 +123,11 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV=prod" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-prod.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/prod.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/prod.tfvars" >> $GITHUB_OUTPUT
           else
             echo "ENV=dev" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-dev.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/dev.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/dev.tfvars" >> $GITHUB_OUTPUT
           fi
 
       - name: Terraform Init (backend ${{ steps.paths.outputs.ENV }})
@@ -182,11 +182,11 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "ENV=prod" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-prod.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/prod.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/prod.tfvars" >> $GITHUB_OUTPUT
           else
             echo "ENV=dev" >> $GITHUB_OUTPUT
             echo "BACKEND_CONFIG=configs/infra-dev.config" >> $GITHUB_OUTPUT
-            echo "TFVARS=terraform-infra/envs/dev.tfvars" >> $GITHUB_OUTPUT
+            echo "TFVARS=envs/dev.tfvars" >> $GITHUB_OUTPUT
           fi
 
       - name: Terraform Init (backend ${{ steps.paths.outputs.ENV }})
