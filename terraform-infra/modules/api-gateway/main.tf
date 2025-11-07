@@ -31,7 +31,7 @@ resource "google_api_gateway_api" "api" {
 resource "google_api_gateway_api_config" "config" {
   provider      = google-beta
   project       = var.project_id
-  api           = google_api_gateway_api.api.name
+  api           = google_api_gateway_api.api.api_id
   api_config_id = var.api_config_id
 
   openapi_documents {

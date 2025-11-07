@@ -76,6 +76,8 @@ variable "roles" {
     "roles/iam.serviceAccountAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/artifactregistry.admin",
-    "roles/artifactregistry.writer"
+    "roles/artifactregistry.writer",
+    "roles/apigateway.admin",
+    "roles/serviceusage.serviceUsageAdmin"
   ]
 }
