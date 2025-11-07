@@ -15,5 +15,3 @@ paths:
           description: OK
       x-google-backend:
         address: https://httpbin.org/status/200
-
-

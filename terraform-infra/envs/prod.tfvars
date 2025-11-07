@@ -1,4 +1,4 @@
-project_id        = "YOUR_GCP_PROJECT_ID"
+project_id        = "serverless-guidon"
 region            = "europe-west1"
 api_id            = "guidon-api"
 gateway_id        = "guidon-gw-prod"
