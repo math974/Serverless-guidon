@@ -28,7 +28,7 @@ module "api_gateway" {
   region                = var.region
   api_id                = var.api_id
   gateway_id            = var.gateway_id
-  api_config_id         = var.api_config_id
+  api_config_id_prefix  = var.api_config_id_prefix
   openapi_spec_path     = var.openapi_spec_path
   openapi_document_path = var.openapi_document_path
   labels                = var.labels
