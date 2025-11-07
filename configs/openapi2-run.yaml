@@ -17,7 +17,7 @@ paths:
       description: Webhook endpoint for Discord bot interactions
       operationId: discordInteractions
       x-google-backend:
-        address: https://sunbot-gdu7lmfosq-ew.a.run.app
+        address: https://europe-west1-serverless-ejguidon-dev.cloudfunctions.net/discord-interactions
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
         - name: X-Signature-Ed25519
@@ -41,12 +41,16 @@ paths:
           description: Successful interaction response
           schema:
             type: object
+        '400':
+          description: Bad Request - Invalid request
+          schema:
+            type: string
         '401':
           description: Unauthorized - Invalid signature
           schema:
             type: string
-        '403':
-          description: Forbidden - Invalid API key
+        '405':
+          description: Method Not Allowed
           schema:
             type: string
   /health:
@@ -55,7 +59,7 @@ paths:
       description: Endpoint for checking the health status of the web service
       operationId: healthCheck
       x-google-backend:
-        address: https://sunbot-gdu7lmfosq-ew.a.run.app
+        address: https://europe-west1-serverless-ejguidon-dev.cloudfunctions.net/discord-health
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
@@ -67,8 +71,42 @@ paths:
                 type: string
               timestamp:
                 type: string
-        '403':
-          description: Forbidden - Invalid API key
+              service:
+                type: string
+              environment:
+                type: object
+        '405':
+          description: Method Not Allowed
+          schema:
+            type: string
+  /register-commands:
+    post:
+      summary: Register Discord slash commands
+      description: Endpoint to register Discord slash commands with Discord API
+      operationId: registerCommands
+      x-google-backend:
+        address: https://europe-west1-serverless-ejguidon-dev.cloudfunctions.net/discord-register-commands
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: Commands registered successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              results:
+                type: array
+                items:
+                  type: object
+              note:
+                type: string
+        '405':
+          description: Method Not Allowed
+          schema:
+            type: string
+        '500':
+          description: Internal Server Error - Configuration missing
           schema:
             type: string
 # securityDefinitions:
