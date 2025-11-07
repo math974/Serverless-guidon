@@ -1,0 +1,19 @@
+swagger: "2.0"
+info:
+  title: Placeholder API (Swagger 2.0)
+  version: "1.0.0"
+schemes:
+  - https
+basePath: /
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: OK
+      x-google-backend:
+        address: https://httpbin.org/status/200
+
+
