@@ -21,18 +21,18 @@ resource "google_project_service" "apigateway" {
 
 resource "google_api_gateway_api" "api" {
   provider = google-beta
-  project = var.project_id
-  api_id  = var.api_id
-  labels  = var.labels
+  project  = var.project_id
+  api_id   = var.api_id
+  labels   = var.labels
 
   depends_on = [google_project_service.apigateway]
 }
 
 resource "google_api_gateway_api_config" "config" {
-  provider       = google-beta
-  project        = var.project_id
-  api            = google_api_gateway_api.api.name
-  api_config_id  = var.api_config_id
+  provider      = google-beta
+  project       = var.project_id
+  api           = google_api_gateway_api.api.name
+  api_config_id = var.api_config_id
 
   openapi_documents {
     document {

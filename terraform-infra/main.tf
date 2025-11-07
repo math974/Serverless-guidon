@@ -20,8 +20,8 @@ module "api_gateway" {
   source = "./modules/api-gateway"
 
   providers = {
-    google       = google
-    google-beta  = google-beta
+    google      = google
+    google-beta = google-beta
   }
 
   project_id            = var.project_id
