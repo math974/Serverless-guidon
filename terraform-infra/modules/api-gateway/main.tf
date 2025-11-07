@@ -55,7 +55,3 @@ resource "google_api_gateway_gateway" "gateway" {
   labels     = var.labels
 }
 
-
-
-
-
