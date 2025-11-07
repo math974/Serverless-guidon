@@ -1,29 +1,44 @@
-"""Main application entry point."""
-import os
-import threading
-from flask import Flask
+"""Main serverless function for Discord interactions."""
+import json
+from datetime import datetime
 from config import Config
 from discord_service import DiscordService
-from routes import register_routes
+from interaction_handler import InteractionHandler
 import command_handlers  # Import to register handlers
 
 
-app = Flask(__name__)
-
-# Register all routes
-register_routes(app)
-
-
-def auto_register_commands():
-    """Automatically register Discord commands on startup."""
-    if Config.AUTO_REGISTER_COMMANDS and Config.DISCORD_BOT_TOKEN and Config.DISCORD_APPLICATION_ID:
-        print("Auto-registering Discord commands on startup...")
-        DiscordService.register_all_commands()
-
-
-# Auto-register commands on startup (non-blocking)
-threading.Thread(target=auto_register_commands, daemon=True).start()
-
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+def discord_interactions(request):
+    """
+    Serverless function to handle Discord interactions.
+    
+    Args:
+        request: Flask/Cloud Functions request object
+        
+    Returns:
+        tuple: (response_data, status_code) or Flask Response
+    """
+    # Check that it's a POST request
+    if request.method != 'POST':
+        return json.dumps({'error': 'Method not allowed'}), 405
+    
+    # Get signature headers
+    signature = request.headers.get('X-Signature-Ed25519')
+    timestamp = request.headers.get('X-Signature-Timestamp')
+    
+    if not signature or not timestamp:
+        return json.dumps({'error': 'Bad Request - Missing headers'}), 400
+    
+    # Verify signature
+    body = request.get_data()
+    if not DiscordService.verify_signature(signature, timestamp, body):
+        return json.dumps({'error': 'Unauthorized'}), 401
+    
+    # Parse JSON
+    try:
+        interaction = request.get_json()
+    except Exception:
+        return json.dumps({'error': 'Bad Request - Invalid JSON'}), 400
+    
+    # Process interaction
+    response, status_code = InteractionHandler.process(interaction)
+    return json.dumps(response), status_code
