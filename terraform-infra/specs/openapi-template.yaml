@@ -12,7 +12,6 @@ paths:
       x-google-backend:
         address: ${HELLO_URL}
         path_translation: CONSTANT_ADDRESS
-        path: /
       responses:
         "200":
           description: "OK"
@@ -25,7 +24,6 @@ paths:
       x-google-backend:
         address: ${PING_URL}
         path_translation: CONSTANT_ADDRESS
-        path: /
       responses:
         "200":
           description: "OK"
