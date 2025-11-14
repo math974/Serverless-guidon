@@ -17,7 +17,7 @@ def register_commands(request):
     # Check that it's a POST request
     if request.method != 'POST':
         return json.dumps({'error': 'Method not allowed'}), 405
-    
+   
     # Check configuration
     if not Config.DISCORD_BOT_TOKEN or not Config.DISCORD_APPLICATION_ID:
         return json.dumps({

@@ -10,6 +10,19 @@ labels = {
   app         = "picasso"
 }
 
+functions = {
+  "hello-http" = {
+    entry_point = "hello_http"
+    source_dir  = "/home/mballot/Documents/tek4/Serverless-guidon/serverless/hello-python"
+    runtime     = "python311"
+  }
+  "ping-http" = {
+    entry_point = "ping_http"
+    source_dir  = "/home/mballot/Documents/tek4/Serverless-guidon/serverless/ping-python"
+    runtime     = "python311"
+  }
+}
+
 
 
 

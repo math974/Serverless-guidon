@@ -1,0 +1,32 @@
+swagger: "2.0"
+info:
+  title: "Multi Function API"
+  version: "1.0.0"
+schemes:
+  - "https"
+paths:
+  /hello:
+    get:
+      summary: "Hello endpoint"
+      operationId: "hello"
+      x-google-backend:
+        address: ${HELLO_URL}
+      responses:
+        "200":
+          description: "OK"
+          schema:
+            type: string
+  /ping:
+    get:
+      summary: "Ping endpoint"
+      operationId: "ping"
+      x-google-backend:
+        address: ${PING_URL}
+      responses:
+        "200":
+          description: "OK"
+          schema:
+            type: string
+
+
+

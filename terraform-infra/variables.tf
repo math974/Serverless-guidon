@@ -41,6 +41,22 @@ variable "labels" {
   default     = {}
 }
 
+variable "functions" {
+  description = "Définition des fonctions serverless à déployer (map de fonctions)"
+  type = map(object({
+    entry_point = string
+    source_dir  = string
+    runtime     = optional(string)
+    labels      = optional(map(string))
+    secret_env  = optional(list(object({
+      key     = string
+      secret  = string
+      version = string
+    })))
+  }))
+  default = {}
+}
+
 
 
 
