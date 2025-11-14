@@ -1,8 +1,8 @@
-# openapi2-functions.yaml
+# openapi2-run.yaml
 swagger: '2.0'
 info:
   title: Web Service & Discord Bot API Gateway
-  description: API Gateway with endpoints for web service and Discord bot on Google Cloud Functions backend
+  description: API Gateway with endpoints for web service and Discord bot on Google Cloud Run backend
   version: 1.0.0
 schemes:
   - https
@@ -14,10 +14,10 @@ paths:
   /discord/interactions:
     post:
       summary: Handle Discord interactions
-      description: Webhook endpoint for Discord bot interactions
+      description: Webhook endpoint for Discord bot interactions. Routes to Proxy Service which publishes to Pub/Sub topics.
       operationId: discordInteractions
       x-google-backend:
-        address: https://sunbot-gdu7lmfosq-ew.a.run.app
+        address: https://discord-proxy-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
         - name: X-Signature-Ed25519
@@ -41,21 +41,74 @@ paths:
           description: Successful interaction response
           schema:
             type: object
+        '400':
+          description: Bad Request - Missing headers or invalid JSON
+          schema:
+            type: string
         '401':
           description: Unauthorized - Invalid signature
           schema:
             type: string
-        '403':
-          description: Forbidden - Invalid API key
+        '500':
+          description: Internal Server Error
           schema:
             type: string
+  /web/interactions:
+    post:
+      summary: Handle web interactions
+      description: Endpoint for web client interactions. Routes to Proxy Service which publishes to Pub/Sub topics.
+      operationId: webInteractions
+      x-google-backend:
+        address: https://discord-proxy-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      parameters:
+        - name: interaction
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Web interaction payload
+            properties:
+              command:
+                type: string
+                description: Command name
+              options:
+                type: array
+                description: Command options
+              token:
+                type: string
+                description: Interaction token
+              application_id:
+                type: string
+                description: Application ID
+      responses:
+        '200':
+          description: Successful interaction response (immediate)
+          schema:
+            type: object
+        '202':
+          description: Command accepted and being processed
+          schema:
+            type: object
+        '400':
+          description: Bad Request - Invalid JSON or missing command
+          schema:
+            type: object
+        '500':
+          description: Internal Server Error
+          schema:
+            type: object
+        '503':
+          description: Service Temporarily Unavailable
+          schema:
+            type: object
   /health:
     get:
       summary: Web service health check endpoint
-      description: Endpoint for checking the health status of the web service
+      description: Endpoint for checking the health status of the proxy service
       operationId: healthCheck
       x-google-backend:
-        address: https://sunbot-gdu7lmfosq-ew.a.run.app
+        address: https://discord-proxy-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       responses:
         '200':
@@ -65,12 +118,12 @@ paths:
             properties:
               status:
                 type: string
-              timestamp:
+              service:
                 type: string
-        '403':
-          description: Forbidden - Invalid API key
-          schema:
-            type: string
+              project_id:
+                type: string
+              topics:
+                type: object
 # securityDefinitions:
 #   api_key:
 #     type: 'apiKey'
