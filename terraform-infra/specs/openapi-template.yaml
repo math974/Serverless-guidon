@@ -11,6 +11,8 @@ paths:
       operationId: "hello"
       x-google-backend:
         address: ${HELLO_URL}
+        path_translation: CONSTANT_ADDRESS
+        path: /
       responses:
         "200":
           description: "OK"
@@ -22,6 +24,8 @@ paths:
       operationId: "ping"
       x-google-backend:
         address: ${PING_URL}
+        path_translation: CONSTANT_ADDRESS
+        path: /
       responses:
         "200":
           description: "OK"

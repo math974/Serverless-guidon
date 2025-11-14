@@ -78,6 +78,7 @@ variable "roles" {
     "roles/artifactregistry.admin",
     "roles/artifactregistry.writer",
     "roles/apigateway.admin",
-    "roles/serviceusage.serviceUsageAdmin"
+    "roles/serviceusage.serviceUsageAdmin",
+    "roles/cloudfunctions.admin"
   ]
 }
