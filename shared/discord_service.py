@@ -2,7 +2,7 @@
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 import requests
-from config import Config, COMMANDS
+from .config import Config, COMMANDS
 
 
 class DiscordService:
