@@ -28,4 +28,5 @@ Thumbs.db
 .env
 
 # terraform
-.terraform
+.terraform/
+iam/
