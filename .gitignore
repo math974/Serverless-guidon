@@ -28,11 +28,4 @@ Thumbs.db
 .env
 
 # terraform
-iam/envs/.terraform
-iam/envs/.terraform.lock.hcl
-iam/envs/terraform.tfstate
-iam/envs/terraform.tfstate.backup
-iam/envs/terraform.tfvars
-iam/envs/terraform.tfvars.backup
-iam/envs/terraform.tfvars.backup.backup
-iam/envs/terraform.tfvars.backup.backup.backup
+.terraform
