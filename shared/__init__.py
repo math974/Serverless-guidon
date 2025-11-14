@@ -1,2 +1,0 @@
-"""Shared code package."""
-
