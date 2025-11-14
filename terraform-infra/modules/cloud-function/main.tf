@@ -61,16 +61,16 @@ resource "google_cloudfunctions2_function" "function" {
   }
 
   service_config {
-    ingress_settings = "ALLOW_ALL"
+    ingress_settings               = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
 
     dynamic "secret_environment_variables" {
       for_each = var.secret_env
       content {
-        key     = secret_environment_variables.value.key
+        key        = secret_environment_variables.value.key
         project_id = var.project_id
-        secret  = secret_environment_variables.value.secret
-        version = secret_environment_variables.value.version
+        secret     = secret_environment_variables.value.secret
+        version    = secret_environment_variables.value.version
       }
     }
   }

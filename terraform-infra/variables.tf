@@ -48,7 +48,7 @@ variable "functions" {
     source_dir  = string
     runtime     = optional(string)
     labels      = optional(map(string))
-    secret_env  = optional(list(object({
+    secret_env = optional(list(object({
       key     = string
       secret  = string
       version = string

@@ -26,7 +26,7 @@ resource "google_storage_bucket" "cf_src" {
 }
 
 module "functions" {
-  source = "./modules/cloud-function"
+  source   = "./modules/cloud-function"
   for_each = var.functions
 
   providers = {
@@ -43,7 +43,7 @@ module "functions" {
   labels        = merge(var.labels, coalesce(each.value.labels, {}))
   secret_env    = coalesce(each.value.secret_env, [])
 
-  bucket_name   = google_storage_bucket.cf_src.name
+  bucket_name = google_storage_bucket.cf_src.name
 }
 
 module "api_gateway" {
