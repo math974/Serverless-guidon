@@ -27,6 +27,9 @@ Thumbs.db
 # Environment variables
 .env
 
-# terraform
+# Terraform
 .terraform/
-iam/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
