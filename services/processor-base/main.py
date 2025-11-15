@@ -1,17 +1,13 @@
 """Cloud Run service that processes Pub/Sub messages for base Discord commands.
-This is a serverless Cloud Run service - Gunicorn handles the server via Procfile.
+Uses Functions Framework for Cloud Run
 """
-import os
 import json
 import base64
-from flask import Flask, request, jsonify
 import requests
-
+from functions_framework import create_app
 from command_registry import CommandHandler
-import handlers
 
-app = Flask(__name__)
-
+app = create_app(__name__)
 
 def send_response_to_proxy(proxy_url: str, interaction_token: str, application_id: str, response: dict):
     """Send response to proxy service, which will forward it to Discord."""
@@ -37,7 +33,6 @@ def send_response_to_proxy(proxy_url: str, interaction_token: str, application_i
     except Exception as e:
         print(f"Error sending response to proxy: {e}")
         return False
-
 
 def process_discord_interaction(interaction: dict) -> dict:
     """Process a Discord interaction and return response."""
@@ -82,30 +77,29 @@ def process_discord_interaction(interaction: dict) -> dict:
             }
         }
 
-
 @app.route("/", methods=['POST'])
-def process_pubsub_message():
+def process_pubsub_message(request):
     """Process Pub/Sub push message."""
     try:
-        envelope = request.get_json()
+        envelope = request.get_json(silent=True)
 
         if not envelope:
-            return jsonify({'status': 'error', 'message': 'Missing envelope'}), 400
+            return {'status': 'error', 'message': 'Missing envelope'}, 400
 
         pubsub_message = envelope.get('message', {})
         if not pubsub_message:
-            return jsonify({'status': 'error', 'message': 'Missing message'}), 400
+            return {'status': 'error', 'message': 'Missing message'}, 400
 
         try:
             message_data = base64.b64decode(pubsub_message.get('data', '')).decode('utf-8')
             interaction_data = json.loads(message_data)
         except (ValueError, TypeError, json.JSONDecodeError) as e:
             print(f"ERROR decoding Pub/Sub message: {e}")
-            return jsonify({'status': 'error', 'message': 'Invalid message format'}), 400
+            return {'status': 'error', 'message': 'Invalid message format'}, 400
 
         interaction = interaction_data.get('interaction', {})
         if not interaction:
-            return jsonify({'status': 'error', 'message': 'Missing interaction'}), 400
+            return {'status': 'error', 'message': 'Missing interaction'}, 400
 
         proxy_url = interaction_data.get('proxy_url')
         interaction_type = interaction_data.get('interaction_type', 'discord')
@@ -133,21 +127,20 @@ def process_pubsub_message():
                 import traceback
                 traceback.print_exc()
 
-        return jsonify({'status': 'processed'}), 200
+        return {'status': 'processed'}, 200
 
     except Exception as e:
         import traceback
         print(f"CRITICAL ERROR in process_pubsub_message: {e}")
         print(traceback.format_exc())
-        return jsonify({'status': 'error', 'message': 'Internal error (logged)'}), 200
+        return {'status': 'error', 'message': 'Internal error (logged)'}, 200
 
 
-@app.route("/health")
-def health():
+@app.route("/health", methods=['GET'])
+def health(request):
     """Health check endpoint."""
-    return jsonify({
+    return {
         'status': 'healthy',
         'service': 'discord-processor-base',
         'handlers': list(CommandHandler.HANDLERS.keys())
-    })
-
+    }, 200
