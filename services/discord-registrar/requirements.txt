@@ -3,3 +3,9 @@ gunicorn==23.0.0
 Werkzeug==3.0.3
 requests==2.31.0
 
+# Observability - OpenTelemetry
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-exporter-otlp-proto-grpc==1.21.0
+opentelemetry-instrumentation-flask==0.42b0
+opentelemetry-instrumentation-requests==0.42b0
