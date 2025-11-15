@@ -61,6 +61,7 @@ echo "  ✓ All required secrets found in GCP Secret Manager"
 
 
 echo "\n[1/2] Deploying proxy service to Cloud Run..."
+# OpenTelemetry: Configure GCP_PROJECT_ID for Cloud Trace and ENVIRONMENT for observability
 gcloud run deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --region="${REGION}" \

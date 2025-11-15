@@ -20,6 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 echo "\n[1/2] Deploying processor-base service to Cloud Run..."
+# OpenTelemetry: Configure GCP_PROJECT_ID for Cloud Trace and ENVIRONMENT for observability
 gcloud run deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --region="${REGION}" \
