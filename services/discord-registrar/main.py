@@ -1,11 +1,20 @@
 """Discord command registration service.
 Uses Functions Framework for Cloud Run
 """
+import sys
 import os
 import requests
+
+# Import shared modules (copied to service directory during deployment)
+from shared.observability import init_observability, traced_function
+from shared.flask_middleware import add_correlation_middleware
 from functions_framework import create_app
 
 app = create_app(__name__)
+
+# Initialize observability
+logger, tracing = init_observability('discord-registrar', app=app)
+add_correlation_middleware(app, logger)
 
 DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN')
 DISCORD_APPLICATION_ID = os.environ.get('DISCORD_APPLICATION_ID')
@@ -64,9 +73,10 @@ ART_COMMANDS = [
 ALL_COMMANDS = BASE_COMMANDS + ART_COMMANDS
 
 
-def register_command(command: dict) -> dict:
+def register_command(command: dict, correlation_id: str = None) -> dict:
     """Register a Discord command."""
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
+        logger.error("Discord tokens not configured", correlation_id=correlation_id)
         return {
             'status': 'error',
             'message': 'Discord tokens not configured. Set DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID.'
@@ -79,19 +89,29 @@ def register_command(command: dict) -> dict:
     }
 
     try:
+        logger.info(f"Registering command '{command['name']}'", correlation_id=correlation_id, command_name=command['name'])
         response = requests.post(url, headers=headers, json=command, timeout=10)
         if response.status_code in [200, 201]:
+            logger.info(f"Command '{command['name']}' registered successfully", correlation_id=correlation_id, command_name=command['name'])
             return {
                 'status': 'success',
                 'message': f"Command '/{command['name']}' registered successfully",
                 'data': response.json()
             }
+        logger.error(
+            f"Failed to register command '{command['name']}'",
+            correlation_id=correlation_id,
+            command_name=command['name'],
+            status_code=response.status_code,
+            response_text=response.text[:200]
+        )
         return {
             'status': 'error',
             'message': f"HTTP {response.status_code}",
             'details': response.text
         }
     except Exception as e:
+        logger.error(f"Exception registering command '{command['name']}'", error=e, correlation_id=correlation_id)
         return {
             'status': 'error',
             'message': str(e)
@@ -101,6 +121,7 @@ def register_command(command: dict) -> dict:
 @app.route("/health", methods=['GET'])
 def health(request):
     """Health check endpoint."""
+    logger.info("Health check called", correlation_id=getattr(g, 'correlation_id', None))
     return {
         'status': 'healthy',
         'service': 'discord-registrar',
@@ -109,17 +130,23 @@ def health(request):
 
 
 @app.route("/register", methods=['POST'])
+@traced_function("register_all_commands")
 def register_all(request):
     """Register all Discord commands."""
+    correlation_id = getattr(g, 'correlation_id', None)
+    
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
+        logger.error("Discord tokens not configured", correlation_id=correlation_id)
         return {
             'status': 'error',
             'message': 'Discord tokens not configured'
         }, 500
 
+    logger.info(f"Starting registration of {len(ALL_COMMANDS)} commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
+    
     results = []
     for command in ALL_COMMANDS:
-        result = register_command(command)
+        result = register_command(command, correlation_id)
         results.append({
             'command': command['name'],
             'status': result['status'],
@@ -129,6 +156,13 @@ def register_all(request):
     success_count = sum(1 for r in results if r['status'] == 'success')
     error_count = len(results) - success_count
 
+    logger.info(
+        "Command registration completed",
+        correlation_id=correlation_id,
+        total=len(results),
+        success=success_count,
+        errors=error_count
+    )
     return {
         'status': 'completed',
         'total': len(results),
@@ -139,9 +173,13 @@ def register_all(request):
 
 
 @app.route("/register/<command_name>", methods=['POST'])
+@traced_function("register_single_command")
 def register_one(request, command_name: str):
     """Register a specific command."""
+    correlation_id = getattr(g, 'correlation_id', None)
+    
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
+        logger.error("Discord tokens not configured", correlation_id=correlation_id)
         return {
             'status': 'error',
             'message': 'Discord tokens not configured'
@@ -149,12 +187,14 @@ def register_one(request, command_name: str):
 
     command = next((c for c in ALL_COMMANDS if c['name'] == command_name), None)
     if not command:
+        logger.warning(f"Command '{command_name}' not found", correlation_id=correlation_id, command_name=command_name)
         return {
             'status': 'error',
             'message': f"Command '{command_name}' not found"
         }, 404
 
-    result = register_command(command)
+    logger.info(f"Registering single command '{command_name}'", correlation_id=correlation_id, command_name=command_name)
+    result = register_command(command, correlation_id)
     status_code = 200 if result['status'] == 'success' else 500
 
     return result, status_code
@@ -163,6 +203,8 @@ def register_one(request, command_name: str):
 @app.route("/commands", methods=['GET'])
 def list_commands(request):
     """List all defined commands."""
+    correlation_id = getattr(g, 'correlation_id', None)
+    logger.info("Listing all commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
     return {
         'commands': ALL_COMMANDS,
         'base_count': len(BASE_COMMANDS),

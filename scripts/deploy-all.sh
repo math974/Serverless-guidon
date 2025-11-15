@@ -23,6 +23,12 @@ echo "API ID:         ${API_ID}"
 echo "Gateway ID:     ${GATEWAY_ID}"
 echo ""
 
+# Step -1: Prepare services (copy shared modules)
+echo "=========================================="
+echo "[-1/7] Preparing services..."
+echo "=========================================="
+./prepare-services.sh
+
 # Step 0: Verify secrets exist in GCP Secret Manager
 echo "=========================================="
 echo "[0/7] Verifying secrets in GCP Secret Manager..."

@@ -1,2 +1,9 @@
 functions-framework==3.*
 requests==2.31.0
+
+# Observability - OpenTelemetry with Google Cloud Trace
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-exporter-gcp-trace==1.6.0
+opentelemetry-instrumentation-flask==0.42b0
+opentelemetry-instrumentation-requests==0.42b0

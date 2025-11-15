@@ -19,7 +19,10 @@ echo "Source Dir:     ${SOURCE_DIR}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "\n[0/2] Verifying secrets in GCP Secret Manager..."
+echo "\n[-1/3] Preparing service (copying shared modules)..."
+"${SCRIPT_DIR}/prepare-services.sh"
+
+echo "\n[0/3] Verifying secrets in GCP Secret Manager..."
 
 # Check if secrets exist
 check_secret() {
@@ -60,14 +63,15 @@ fi
 echo "  ✓ All required secrets found in GCP Secret Manager"
 
 
-echo "\n[1/2] Deploying proxy service to Cloud Run..."
+echo "\n[1/3] Deploying proxy service to Cloud Run..."
+# OpenTelemetry: Configure GCP_PROJECT_ID for Cloud Trace and ENVIRONMENT for observability
 gcloud run deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
   --allow-unauthenticated \
   --platform=managed \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID}" \
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production" \  # OpenTelemetry: GCP_PROJECT_ID for Cloud Trace, ENVIRONMENT for observability config
   --update-secrets="DISCORD_PUBLIC_KEY=DISCORD_PUBLIC_KEY:latest,DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest,DISCORD_APPLICATION_ID=DISCORD_APPLICATION_ID:latest" \
   2>&1 | grep -v "No change" || true
 
@@ -76,7 +80,7 @@ SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --format="value(status.url)")
 
-echo "\n[2/2] Deployment complete!"
+echo "\n[2/3] Deployment complete!"
 echo "\nDone. Proxy service URL: ${SERVICE_URL}"
 echo "Update your Discord interaction URL to: ${SERVICE_URL}/discord/interactions"
 
