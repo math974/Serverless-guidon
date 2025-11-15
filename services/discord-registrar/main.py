@@ -1,10 +1,11 @@
 """Discord command registration service.
+Uses Functions Framework for Cloud Run
 """
 import os
 import requests
-from flask import Flask, jsonify
+from functions_framework import create_app
 
-app = Flask(__name__)
+app = create_app(__name__)
 
 DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN')
 DISCORD_APPLICATION_ID = os.environ.get('DISCORD_APPLICATION_ID')
@@ -97,24 +98,24 @@ def register_command(command: dict) -> dict:
         }
 
 
-@app.route("/health")
-def health():
+@app.route("/health", methods=['GET'])
+def health(request):
     """Health check endpoint."""
-    return jsonify({
+    return {
         'status': 'healthy',
         'service': 'discord-registrar',
         'configured': bool(DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID)
-    })
+    }, 200
 
 
 @app.route("/register", methods=['POST'])
-def register_all():
+def register_all(request):
     """Register all Discord commands."""
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
-        return jsonify({
+        return {
             'status': 'error',
             'message': 'Discord tokens not configured'
-        }), 500
+        }, 500
 
     results = []
     for command in ALL_COMMANDS:
@@ -128,44 +129,43 @@ def register_all():
     success_count = sum(1 for r in results if r['status'] == 'success')
     error_count = len(results) - success_count
 
-    return jsonify({
+    return {
         'status': 'completed',
         'total': len(results),
         'success': success_count,
         'errors': error_count,
         'results': results
-    })
+    }, 200
 
 
 @app.route("/register/<command_name>", methods=['POST'])
-def register_one(command_name: str):
+def register_one(request, command_name: str):
     """Register a specific command."""
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
-        return jsonify({
+        return {
             'status': 'error',
             'message': 'Discord tokens not configured'
-        }), 500
+        }, 500
 
     command = next((c for c in ALL_COMMANDS if c['name'] == command_name), None)
     if not command:
-        return jsonify({
+        return {
             'status': 'error',
             'message': f"Command '{command_name}' not found"
-        }), 404
+        }, 404
 
     result = register_command(command)
     status_code = 200 if result['status'] == 'success' else 500
 
-    return jsonify(result), status_code
+    return result, status_code
 
 
 @app.route("/commands", methods=['GET'])
-def list_commands():
+def list_commands(request):
     """List all defined commands."""
-    return jsonify({
+    return {
         'commands': ALL_COMMANDS,
         'base_count': len(BASE_COMMANDS),
         'art_count': len(ART_COMMANDS),
         'total': len(ALL_COMMANDS)
-    })
-
+    }, 200
