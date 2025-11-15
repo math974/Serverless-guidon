@@ -19,6 +19,9 @@ echo "Source Dir:     ${SOURCE_DIR}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+echo "\n[-1/3] Preparing service (copying shared modules)..."
+"${SCRIPT_DIR}/prepare-services.sh"
+
 # Check if secrets exist
 check_secret() {
     local secret_name=$1
@@ -29,7 +32,7 @@ check_secret() {
     fi
 }
 
-echo "\n[0/2] Checking required secrets in GCP Secret Manager..."
+echo "\n[0/3] Checking required secrets in GCP Secret Manager..."
 MISSING_SECRETS=()
 if ! check_secret "DISCORD_BOT_TOKEN"; then
     MISSING_SECRETS+=("DISCORD_BOT_TOKEN")
@@ -52,7 +55,7 @@ if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
 fi
 
 echo "  ✓ All required secrets found"
-echo "\n[1/2] Deploying registrar service to Cloud Run..."
+echo "\n[1/3] Deploying registrar service to Cloud Run..."
 # OpenTelemetry: Configure GCP_PROJECT_ID for Cloud Trace and ENVIRONMENT for observability
 gcloud run deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
@@ -69,7 +72,7 @@ SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --format="value(status.url)")
 
-echo "\n[2/2] Service deployed successfully!"
+echo "\n[2/3] Service deployed successfully!"
 echo "\nDone. Registrar service URL: ${SERVICE_URL}"
 echo ""
 echo "To register commands, call:"

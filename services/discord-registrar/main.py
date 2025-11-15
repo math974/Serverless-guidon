@@ -5,11 +5,9 @@ import os
 import requests
 from flask import Flask, jsonify, g
 
-# Add shared modules to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
-
-from observability import init_observability, traced_function
-from flask_middleware import add_correlation_middleware
+# Import shared modules (copied to service directory during deployment)
+from shared.observability import init_observability, traced_function
+from shared.flask_middleware import add_correlation_middleware
 
 app = Flask(__name__)
 

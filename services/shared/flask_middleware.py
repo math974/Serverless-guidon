@@ -16,7 +16,7 @@ def add_correlation_middleware(app, logger):
     @app.before_request
     def before_request():
         """Setup correlation ID and start request tracking."""
-        from observability import get_correlation_id
+        from shared.observability import get_correlation_id
         
         g.correlation_id = get_correlation_id(request)
         g.start_time = time.time()
