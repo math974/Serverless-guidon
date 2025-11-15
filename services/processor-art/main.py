@@ -1,21 +1,23 @@
 """Cloud Run service that processes Pub/Sub messages for art Discord commands.
-This is a serverless Cloud Run service - Gunicorn handles the server via Procfile.
+Uses Functions Framework for Cloud Run
 """
 import sys
 import os
 import json
 import base64
-from flask import Flask, request, jsonify, g
 import requests
 
 # Import shared modules (copied to service directory during deployment)
 from shared.observability import init_observability, traced_function
 from shared.flask_middleware import add_correlation_middleware
 
+import json
+import base64
+import requests
+from functions_framework import create_app
 from command_registry import CommandHandler
-import handlers
 
-app = Flask(__name__)
+app = create_app(__name__)
 
 # Initialize observability
 logger, tracing = init_observability('discord-processor-art', app=app)
@@ -108,28 +110,32 @@ def process_discord_interaction(interaction: dict, correlation_id: str = None) -
 
 @app.route("/", methods=['POST'])
 @traced_function("process_pubsub_message")
-def process_pubsub_message():
+def process_pubsub_message(request):
     """Process Pub/Sub push message."""
     correlation_id = None
     
     try:
-        envelope = request.get_json()
+        envelope = request.get_json(silent=True)
 
         if not envelope:
             logger.warning("Missing envelope in Pub/Sub message")
-            return jsonify({'status': 'error', 'message': 'Missing envelope'}), 400
+            return {'status': 'error', 'message': 'Missing envelope'}, 400
 
         pubsub_message = envelope.get('message', {})
         if not pubsub_message:
             logger.warning("Missing message in Pub/Sub envelope")
-            return jsonify({'status': 'error', 'message': 'Missing message'}), 400
+            return {'status': 'error', 'message': 'Missing envelope'}, 400
+
+        pubsub_message = envelope.get('message', {})
+        if not pubsub_message:
+            return {'status': 'error', 'message': 'Missing message'}, 400
 
         try:
             message_data = base64.b64decode(pubsub_message.get('data', '')).decode('utf-8')
             interaction_data = json.loads(message_data)
         except (ValueError, TypeError, json.JSONDecodeError) as e:
             logger.error("Error decoding Pub/Sub message", error=e)
-            return jsonify({'status': 'error', 'message': 'Invalid message format'}), 400
+            return {'status': 'error', 'message': 'Invalid message format'}, 400
 
         # Extract correlation ID from message
         correlation_id = interaction_data.get('correlation_id', 'unknown')
@@ -137,7 +143,7 @@ def process_pubsub_message():
         interaction = interaction_data.get('interaction', {})
         if not interaction:
             logger.warning("Missing interaction in message", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing interaction'}), 400
+            return {'status': 'error', 'message': 'Missing interaction'}, 400
 
         proxy_url = interaction_data.get('proxy_url')
         interaction_type = interaction_data.get('interaction_type', 'discord')
@@ -172,20 +178,24 @@ def process_pubsub_message():
                 logger.error("Error sending response to proxy", error=e, correlation_id=correlation_id)
 
         logger.info("Message processed successfully", correlation_id=correlation_id)
-        return jsonify({'status': 'processed'}), 200
+        return {'status': 'processed'}, 200
 
     except Exception as e:
         logger.error("Critical error in process_pubsub_message", error=e, correlation_id=correlation_id)
-        return jsonify({'status': 'error', 'message': 'Internal error (logged)'}), 200
+        return {'status': 'processed'}, 200
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {'status': 'error', 'message': 'Internal error (logged)'}, 200
 
 
-@app.route("/health")
-def health():
+@app.route("/health", methods=['GET'])
+def health(request):
     """Health check endpoint."""
     logger.info("Health check called", correlation_id=getattr(g, 'correlation_id', None))
-    return jsonify({
+    return {
         'status': 'healthy',
         'service': 'discord-processor-art',
         'handlers': list(CommandHandler.HANDLERS.keys())
-    })
-
+    }, 200

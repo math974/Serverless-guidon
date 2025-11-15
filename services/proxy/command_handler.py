@@ -18,9 +18,9 @@ def handle_simple_command(command_name: str, interaction_type: str = 'discord') 
                 'data': {
                     'embeds': [{
                         'title': 'Pong!',
-                        'description': 'Bot is running with Cloud Run.',
+                        'description': 'Bot is running with Functions Framework.',
                         'color': 0x00FF00,
-                        'footer': {'text': 'Status: Online'}
+                        'footer': {'text': 'Picasso - Art Bot'}
                     }]
                 }
             }
@@ -40,20 +40,20 @@ def handle_simple_command(command_name: str, interaction_type: str = 'discord') 
                 'type': 4,
                 'data': {
                     'embeds': [{
-                        'title': 'Welcome to RATP Service',
-                        'description': 'Hello! Welcome to the RATP service. I am your assistant to help you with Paris public transport. How can I help you today?',
+                        'title': 'Welcome to Picasso Service',
+                        'description': 'Hello! Welcome to the Picasso service. I am your brush to create art. How can I help you today?',
                         'color': 0x0066CC,
-                        'footer': {'text': 'RATP - Paris Public Transport'}
+                        'footer': {'text': 'Picasso - Art Bot'}
                     }]
                 }
             }
         else:
             return {
                 'status': 'success',
-                'message': 'Hello! Welcome to the RATP service.',
+                'message': 'Hello! Welcome to the Picasso service. I am your brush to create art.',
                 'data': {
-                    'service': 'RATP - Paris Public Transport',
-                    'description': 'I am your assistant to help you with Paris public transport.'
+                    'service': 'Picasso - Art Bot',
+                    'description': 'I am your brush to create art.'
                 }
             }
 
@@ -64,37 +64,37 @@ def handle_simple_command(command_name: str, interaction_type: str = 'discord') 
                 'data': {
                     'embeds': [{
                         'title': 'Available Commands',
-                        'description': 'Here are the commands you can use:',
+                        'description': 'Here are the commands you can use to create art:',
                         'color': 0x0066CC,
                         'fields': [
                             {
                                 'name': 'Basic Commands',
-                                'value': '`/hello` - RATP service greeting\n`/ping` - Test bot latency\n`/help` - Show this help message',
+                                'value': '`/hello` - Picasso service greeting\n`/ping` - Test bot latency\n`/help` - Show this help message to see all commands',
                                 'inline': False
                             },
                             {
                                 'name': 'Art Commands',
-                                'value': '`/draw` - Draw a pixel\n`/snapshot` - Take a snapshot',
+                                'value': '`/draw` - Draw a pixel\n`/snapshot` - Take a snapshot of the current canvas',
                                 'inline': False
                             }
                         ],
-                        'footer': {'text': 'RATP - Paris Public Transport'}
+                        'footer': {'text': 'Picasso - Art Bot'}
                     }]
                 }
             }
         else:
             return {
                 'status': 'success',
-                'message': 'Available Commands',
+                'message': 'Available Commands to create art:',
                 'data': {
                     'basic_commands': {
-                        'hello': 'RATP service greeting',
-                        'ping': 'Test bot latency',
-                        'help': 'Show this help message'
+                        'hello': 'Picasso service greeting to start the conversation',
+                        'ping': 'Test bot latency to check if the bot is running',
+                        'help': 'Show this help message to see all commands'
                     },
                     'art_commands': {
-                        'draw': 'Draw a pixel',
-                        'snapshot': 'Take a snapshot'
+                        'draw': 'Draw a pixel on the canvas',
+                        'snapshot': 'Take a snapshot of the current canvas'
                     }
                 }
             }

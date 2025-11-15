@@ -34,7 +34,8 @@ def process_interaction(interaction_data: dict, interaction_type: str = 'discord
 
 
 def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
-                        signature: str = None, timestamp: str = None) -> dict:
+                        signature: str = None, timestamp: str = None,
+                        request=None) -> dict:
     """Prepare data for Pub/Sub publication.
 
     Args:
@@ -42,11 +43,12 @@ def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
         interaction_type: 'discord' or 'web'
         signature: Discord signature (optional)
         timestamp: Discord timestamp (optional)
+        request: Functions Framework request object (optional)
 
     Returns:
         Dictionary ready for Pub/Sub
     """
-    proxy_url = get_proxy_url()
+    proxy_url = get_proxy_url(request)
 
     if interaction_type == 'web':
         return {
@@ -73,4 +75,3 @@ def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
                 'timestamp': timestamp
             }
         return result
-

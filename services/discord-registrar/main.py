@@ -1,15 +1,16 @@
 """Discord command registration service.
+Uses Functions Framework for Cloud Run
 """
 import sys
 import os
 import requests
-from flask import Flask, jsonify, g
 
 # Import shared modules (copied to service directory during deployment)
 from shared.observability import init_observability, traced_function
 from shared.flask_middleware import add_correlation_middleware
+from functions_framework import create_app
 
-app = Flask(__name__)
+app = create_app(__name__)
 
 # Initialize observability
 logger, tracing = init_observability('discord-registrar', app=app)
@@ -117,29 +118,29 @@ def register_command(command: dict, correlation_id: str = None) -> dict:
         }
 
 
-@app.route("/health")
-def health():
+@app.route("/health", methods=['GET'])
+def health(request):
     """Health check endpoint."""
     logger.info("Health check called", correlation_id=getattr(g, 'correlation_id', None))
-    return jsonify({
+    return {
         'status': 'healthy',
         'service': 'discord-registrar',
         'configured': bool(DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID)
-    })
+    }, 200
 
 
 @app.route("/register", methods=['POST'])
 @traced_function("register_all_commands")
-def register_all():
+def register_all(request):
     """Register all Discord commands."""
     correlation_id = getattr(g, 'correlation_id', None)
     
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
         logger.error("Discord tokens not configured", correlation_id=correlation_id)
-        return jsonify({
+        return {
             'status': 'error',
             'message': 'Discord tokens not configured'
-        }), 500
+        }, 500
 
     logger.info(f"Starting registration of {len(ALL_COMMANDS)} commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
     
@@ -162,53 +163,51 @@ def register_all():
         success=success_count,
         errors=error_count
     )
-
-    return jsonify({
+    return {
         'status': 'completed',
         'total': len(results),
         'success': success_count,
         'errors': error_count,
         'results': results
-    })
+    }, 200
 
 
 @app.route("/register/<command_name>", methods=['POST'])
 @traced_function("register_single_command")
-def register_one(command_name: str):
+def register_one(request, command_name: str):
     """Register a specific command."""
     correlation_id = getattr(g, 'correlation_id', None)
     
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
         logger.error("Discord tokens not configured", correlation_id=correlation_id)
-        return jsonify({
+        return {
             'status': 'error',
             'message': 'Discord tokens not configured'
-        }), 500
+        }, 500
 
     command = next((c for c in ALL_COMMANDS if c['name'] == command_name), None)
     if not command:
         logger.warning(f"Command '{command_name}' not found", correlation_id=correlation_id, command_name=command_name)
-        return jsonify({
+        return {
             'status': 'error',
             'message': f"Command '{command_name}' not found"
-        }), 404
+        }, 404
 
     logger.info(f"Registering single command '{command_name}'", correlation_id=correlation_id, command_name=command_name)
     result = register_command(command, correlation_id)
     status_code = 200 if result['status'] == 'success' else 500
 
-    return jsonify(result), status_code
+    return result, status_code
 
 
 @app.route("/commands", methods=['GET'])
-def list_commands():
+def list_commands(request):
     """List all defined commands."""
     correlation_id = getattr(g, 'correlation_id', None)
     logger.info("Listing all commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
-    return jsonify({
+    return {
         'commands': ALL_COMMANDS,
         'base_count': len(BASE_COMMANDS),
         'art_count': len(ART_COMMANDS),
         'total': len(ALL_COMMANDS)
-    })
-
+    }, 200
