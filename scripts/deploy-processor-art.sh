@@ -26,7 +26,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --allow-unauthenticated \
   --platform=managed \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"  # OpenTelemetry: GCP_PROJECT_ID for Cloud Trace, ENVIRONMENT for observability config
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --region="${REGION}" \
