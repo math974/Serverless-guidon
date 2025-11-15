@@ -10,7 +10,7 @@ from functools import wraps
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
@@ -119,7 +119,7 @@ class TracingManager:
         self.tracer = self._setup_tracer()
     
     def _setup_tracer(self):
-        """Setup OpenTelemetry tracer with OTLP exporter."""
+        """Setup OpenTelemetry tracer with Google Cloud Trace exporter."""
         resource = Resource.create({
             "service.name": self.service_name,
             "service.namespace": "discord-bot",
@@ -128,14 +128,15 @@ class TracingManager:
         
         tracer_provider = TracerProvider(resource=resource)
         
-        # Setup OTLP exporter (disabled in local dev)
+        # Setup Cloud Trace exporter (disabled in local dev)
         if not os.getenv("LOCAL_DEV"):
             try:
-                otlp_exporter = OTLPSpanExporter()
-                span_processor = BatchSpanProcessor(otlp_exporter)
+                project_id = os.getenv('GCP_PROJECT_ID')
+                cloud_trace_exporter = CloudTraceSpanExporter(project_id=project_id)
+                span_processor = BatchSpanProcessor(cloud_trace_exporter)
                 tracer_provider.add_span_processor(span_processor)
             except Exception as e:
-                print(f"Warning: Could not setup OTLP exporter: {e}")
+                print(f"Warning: Could not setup Cloud Trace exporter: {e}")
         
         trace.set_tracer_provider(tracer_provider)
         return trace.get_tracer(self.service_name)

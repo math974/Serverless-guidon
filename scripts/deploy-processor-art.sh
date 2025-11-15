@@ -25,7 +25,8 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
   --allow-unauthenticated \
-  --platform=managed
+  --platform=managed \
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
   --region="${REGION}" \
