@@ -1,0 +1,20 @@
+.gcloudignore
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+
+# IMPORTANT: Force inclusion of shared/ directory (even if in .gitignore)
+!shared/
+
