@@ -9,7 +9,7 @@ set -euo pipefail
 
 : "${PROJECT_ID:=serverless-ejguidon-dev}"
 : "${REGION:=europe-west1}"
-: "${SERVICE_NAME:=discord-registrar}"
+: "${SERVICE_NAME:=discord-utils}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -21,10 +21,11 @@ echo ""
 
 # Get registrar service URL
 echo "[1/2] Getting registrar service URL..."
-REGISTRAR_URL=$(gcloud run services describe "${SERVICE_NAME}" \
+REGISTRAR_URL=$(gcloud functions describe "${SERVICE_NAME}" \
+  --gen2 \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
-  --format="value(status.url)" 2>/dev/null)
+  --format="value(serviceConfig.uri)" 2>/dev/null)
 
 if [ -z "${REGISTRAR_URL}" ]; then
     echo "❌ Error: Registrar service '${SERVICE_NAME}' not found"
