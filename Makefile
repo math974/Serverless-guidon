@@ -1,4 +1,4 @@
-.PHONY: help deploy-all deploy-proxy deploy-processor-base deploy-processor-art deploy-registrar deploy-auth deploy-user-manager setup-pubsub register-commands update-gateway prepare-services test-health clean
+.PHONY: help deploy-all deploy-proxy deploy-processor-base deploy-processor-art deploy-registrar deploy-auth deploy-user-manager setup-pubsub register-commands update-gateway prepare-services test-health test-user-manager clean
 
 # Default variables
 PROJECT_ID ?= serverless-ejguidon-dev
@@ -71,6 +71,9 @@ test-web: ## Test web endpoints
 		GATEWAY_URL="https://$$GATEWAY_URL" && \
 		$(SCRIPTS_DIR)/test-web-interactions.sh || \
 		echo "Gateway not available"
+
+test-user-manager: ## Test user-manager service and stats
+	@PROJECT_ID=$(PROJECT_ID) REGION=$(REGION) $(SCRIPTS_DIR)/test-user-manager.sh
 
 logs-proxy: ## Show proxy service logs
 	@gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=proxy" \

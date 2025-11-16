@@ -1,4 +1,5 @@
 """User management for Firestore."""
+import os
 from typing import Optional, Dict
 from google.cloud import firestore
 from cache import cache
@@ -13,7 +14,8 @@ def get_db():
     """Get Firestore client singleton."""
     global _db_client
     if _db_client is None:
-        _db_client = firestore.Client()
+        database_id = os.getenv('FIRESTORE_DATABASE', 'guidon-db')
+        _db_client = firestore.Client(database=database_id)
     return _db_client
 
 
@@ -128,7 +130,9 @@ class UserManager:
             username=username
         )
 
-        return user_data
+        # --- Retrieve saved user to get actual timestamps (not Sentinel objects) ---
+        saved_user = self.get_user(user_id, use_cache=False, correlation_id=correlation_id)
+        return saved_user if saved_user else user_data
 
     def increment_usage(
         self,

@@ -1,4 +1,5 @@
 """Rate limiting system."""
+import os
 import time
 from typing import Optional, Dict
 from google.cloud import firestore
@@ -14,7 +15,8 @@ def get_db():
     """Get Firestore client singleton."""
     global _db_client
     if _db_client is None:
-        _db_client = firestore.Client()
+        database_id = os.getenv('FIRESTORE_DATABASE', 'guidon-db')
+        _db_client = firestore.Client(database=database_id)
     return _db_client
 
 

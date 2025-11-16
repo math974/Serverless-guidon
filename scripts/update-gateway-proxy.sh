@@ -50,7 +50,10 @@ if [ ! -f "${SPEC_FILE}" ]; then
 fi
 
 export SPEC_FILE TEMP_SPEC PROXY_URL AUTH_URL
-python3 << 'PYTHON_SCRIPT'
+
+# Try Python with PyYAML first, fallback to sed if not available
+if python3 -c "import yaml" 2>/dev/null; then
+    python3 << 'PYTHON_SCRIPT'
 import yaml
 import sys
 import os
@@ -96,16 +99,23 @@ try:
         yaml.dump(spec, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     print("OpenAPI spec updated")
-except ImportError:
-    print("Error: PyYAML not installed. Install with: pip install pyyaml", file=sys.stderr)
-    sys.exit(1)
 except Exception as e:
     print(f"Error: Failed to update OpenAPI spec: {e}", file=sys.stderr)
     sys.exit(1)
 PYTHON_SCRIPT
+    PYTHON_EXIT=$?
+    if [ $PYTHON_EXIT -ne 0 ]; then
+        echo "Python script failed, using sed fallback..."
+        USE_SED=1
+    else
+        USE_SED=0
+    fi
+else
+    echo "Using sed fallback (PyYAML not available)..."
+    USE_SED=1
+fi
 
-if [ $? -ne 0 ]; then
-    echo "Warning: Python script failed, using sed fallback..."
+if [ "$USE_SED" = "1" ]; then
     # Fallback to sed if Python/PyYAML is not available
     cp "${SPEC_FILE}" "${TEMP_SPEC}"
 

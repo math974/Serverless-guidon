@@ -69,29 +69,29 @@ fi
 echo "Secrets verified"
 
 echo "[2/8] Creating Pub/Sub topics..."
-./setup-pubsub.sh
+"${SCRIPT_DIR}/setup-pubsub.sh"
 
 echo "[3/8] Deploying proxy..."
-./deploy-proxy.sh
+"${SCRIPT_DIR}/deploy-proxy.sh"
 PROXY_URL=$(gcloud functions describe proxy --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "[4/8] Deploying processor-base..."
-./deploy-processor-base.sh
+"${SCRIPT_DIR}/deploy-processor-base.sh"
 
 echo "[5/8] Deploying processor-art..."
-./deploy-processor-art.sh
+"${SCRIPT_DIR}/deploy-processor-art.sh"
 
 echo "[6/8] Deploying registrar..."
-./deploy-registrar.sh
+"${SCRIPT_DIR}/deploy-registrar.sh"
 REGISTRAR_URL=$(gcloud functions describe discord-utils --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "[7/8] Deploying user-manager..."
-./deploy-user-manager.sh
+"${SCRIPT_DIR}/deploy-user-manager.sh"
 USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "[8/8] Deploying auth-service..."
 if [ ${#OAUTH2_SECRETS[@]} -eq 0 ]; then
-    ./deploy-auth.sh
+    "${SCRIPT_DIR}/deploy-auth.sh"
     AUTH_URL=$(gcloud functions describe discord-auth-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
 else
     echo "Skipped (missing OAuth2 secrets)"

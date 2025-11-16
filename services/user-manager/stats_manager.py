@@ -1,5 +1,6 @@
 """Statistics and analytics manager."""
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 from google.cloud import firestore
 from cache import cache
@@ -14,7 +15,8 @@ def get_db():
     """Get Firestore client singleton."""
     global _db_client
     if _db_client is None:
-        _db_client = firestore.Client()
+        database_id = os.getenv('FIRESTORE_DATABASE', 'guidon-db')
+        _db_client = firestore.Client(database=database_id)
     return _db_client
 
 
@@ -69,7 +71,7 @@ class StatsManager:
         Returns:
             Number of active users
         """
-        cutoff = datetime.now(datetime.UTC) - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         query = self.db.collection('users').where('updated_at', '>', cutoff)
         count = len(list(query.stream()))
 
