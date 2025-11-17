@@ -1,11 +1,25 @@
 """User management Discord commands."""
 import os
 import requests
-from datetime import datetime, timezone
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from command_registry import CommandHandler  # noqa: E402
 from shared.observability import init_observability  # noqa: E402
+from shared.embed_utils import (  # noqa: E402
+    create_error_embed,
+    create_info_embed,
+    create_success_embed,
+    create_embed,
+    create_response,
+    get_user_avatar_url,
+    extract_user_info,
+    create_user_author,
+    create_user_thumbnail,
+    COLOR_INFO,
+    COLOR_PREMIUM,
+    COLOR_SUCCESS,
+    COLOR_ERROR
+)
 
 USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
@@ -50,7 +64,6 @@ def call_user_manager(endpoint: str, method: str = 'GET', data: dict = None, cor
     if correlation_id:
         headers['X-Correlation-ID'] = correlation_id
 
-    # Add identity token for calling user-manager
     auth_token = get_auth_token()
     if auth_token:
         headers['Authorization'] = f'Bearer {auth_token}'
@@ -98,16 +111,10 @@ def handle_stats(interaction_data: dict):
     correlation_id = interaction_data.get('correlation_id', 'unknown')
 
     if not USER_MANAGER_URL:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'User management service is not available.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+        return create_error_embed(
+            'Service Unavailable',
+            'User management service is not available.'
+        )
     if user_id:
         member = interaction_data.get('member')
         user = (member.get('user') if member else None) or interaction_data.get('user')
@@ -122,7 +129,7 @@ def handle_stats(interaction_data: dict):
                     correlation_id=correlation_id
                 )
 
-    # Get user stats
+    # - User stats -
     user = call_user_manager(f'/api/users/{user_id}', correlation_id=correlation_id) if user_id else None
     total_users = call_user_manager('/api/stats/users', correlation_id=correlation_id) or {}
     active_users = call_user_manager('/api/stats/active?hours=24', correlation_id=correlation_id) or {}
@@ -141,21 +148,12 @@ def handle_stats(interaction_data: dict):
         'inline': True
     })
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': 'Statistics',
-                'description': 'User and global statistics',
-                'color': 0x0066CC,
-                'fields': fields,
-                'footer': {
-                    'text': 'User Management'
-                },
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }]
-        }
-    }
+    return create_info_embed(
+        title='Statistics',
+        description='User and global statistics',
+        fields=fields,
+        footer={'text': 'User Management'}
+    )
 
 
 @CommandHandler.register('leaderboard')
@@ -164,57 +162,83 @@ def handle_leaderboard(interaction_data: dict):
     correlation_id = interaction_data.get('correlation_id', 'unknown')
 
     if not USER_MANAGER_URL:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'User management service is not available.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+        from shared.embed_utils import create_error_embed
+        return create_error_embed(
+            'Service Unavailable',
+            'User management service is not available.'
+        )
 
     leaderboard_data = call_user_manager('/api/stats/leaderboard?limit=10', correlation_id=correlation_id) or {}
     leaderboard = leaderboard_data.get('leaderboard', [])
 
     if not leaderboard:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Leaderboard',
-                    'description': 'No users found yet.',
-                    'color': 0x0066CC
-                }]
-            }
-        }
-
-    # Format leaderboard
-    leaderboard_text = []
-    medals = ['🥇', '🥈', '🥉']
-    for i, user in enumerate(leaderboard[:10]):
-        medal = medals[i] if i < 3 else f"{i+1}."
-        premium_badge = '⭐' if user.get('is_premium') else ''
-        leaderboard_text.append(
-            f"{medal} {premium_badge} **{user.get('username', 'Unknown')}** - {user.get('total_draws', 0)} draws"
+        from shared.embed_utils import create_info_embed
+        return create_info_embed(
+            title='Leaderboard',
+            description='No users found yet. Be the first to draw!'
         )
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': '🏆 Leaderboard',
-                'description': '\n'.join(leaderboard_text) if leaderboard_text else 'No users yet.',
-                'color': 0xFFD700,
-                'footer': {
-                    'text': 'Top 10 users by draws'
-                },
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }]
-        }
-    }
+    from shared.embed_utils import (
+        create_embed,
+        create_response,
+        get_user_avatar_url,
+        create_user_author,
+        COLOR_PREMIUM
+    )
 
+    fields = []
+    medals = ['🥇', '🥈', '🥉']
+
+    # Top 3 with their information
+    for i, user in enumerate(leaderboard[:3]):
+        username = user.get('username', 'Unknown')
+        total_draws = user.get('total_draws', 0)
+        is_premium = user.get('is_premium', False)
+        medal = medals[i]
+        premium_badge = ' ⭐ Premium' if is_premium else ''
+
+        rank_name = ['Champion', 'Runner-up', 'Third Place'][i]
+
+        fields.append({
+            'name': f'{medal} {rank_name}',
+            'value': f'**{username}**\n**{total_draws}** pixels drawn{premium_badge}',
+            'inline': True
+        })
+
+    if len(leaderboard) > 3:
+        others = []
+        for i, user in enumerate(leaderboard[3:10], start=4):
+            username = user.get('username', 'Unknown')
+            total_draws = user.get('total_draws', 0)
+            is_premium = user.get('is_premium', False)
+            premium_badge = ' ⭐' if is_premium else ''
+
+            others.append(f"**{i}.** {username}{premium_badge} - **{total_draws}** pixels")
+
+        if others:
+            fields.append({
+                'name': 'Rankings 4-10',
+                'value': '\n'.join(others),
+                'inline': False
+            })
+
+    # Get first place user for author (small avatar + name)
+    first_place = leaderboard[0] if leaderboard else None
+    author = None
+    if first_place and first_place.get('user_id'):
+        avatar_url = get_user_avatar_url(first_place.get('user_id'))
+        author = create_user_author(first_place.get('username', 'Unknown'), avatar_url)
+
+    embed = create_embed(
+        title='Leaderboard',
+        description='Top artists by total pixels drawn',
+        color=COLOR_PREMIUM,
+        fields=fields,
+        footer={'text': 'Top 10 users by draws • Use /draw to climb the leaderboard!'},
+        author=author
+    )
+
+    return create_response(embed)
 
 @CommandHandler.register('register')
 def handle_register(interaction_data: dict):
@@ -223,46 +247,24 @@ def handle_register(interaction_data: dict):
     correlation_id = interaction_data.get('correlation_id', 'unknown')
 
     if not USER_MANAGER_URL:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'User management service is not available.',
-                    'color': 0xFF0000,
-                    'flags': 64
-                }]
-            }
-        }
+        return create_error_embed(
+            'Service Unavailable',
+            'User management service is not available.'
+        )
 
     if not user_id:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'Could not identify user.',
-                    'color': 0xFF0000,
-                    'flags': 64
-                }]
-            }
-        }
+        return create_error_embed(
+            'User Identification Failed',
+            'Could not identify user.'
+        )
 
-    # Get user info from interaction
     member = interaction_data.get('member')
     user = (member.get('user') if member else None) or interaction_data.get('user')
     if not user:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'Could not get user information.',
-                    'color': 0xFF0000,
-                    'flags': 64
-                }]
-            }
-        }
+        return create_error_embed(
+            'User Information Missing',
+            'Could not get user information.'
+        )
 
     username = user.get('username', 'unknown')
     discriminator = user.get('discriminator', '0')
@@ -271,21 +273,12 @@ def handle_register(interaction_data: dict):
     existing_user = call_user_manager(f'/api/users/{user_id}', correlation_id=correlation_id)
 
     if existing_user and not existing_user.get('error'):
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': '✅ Already Registered',
-                    'description': f'Your account is already registered!\n\n**Username:** {existing_user.get("username", full_username)}',
-                    'color': 0x00FF00,
-                    'footer': {
-                        'text': 'User Management'
-                    },
-                    'timestamp': datetime.now(timezone.utc).isoformat()
-                }]
-            },
-            'flags': 64
-        }
+        return create_success_embed(
+            title='Already Registered',
+            description=f'Your account is already registered!\n\n**Username:** {existing_user.get("username", full_username)}',
+            footer={'text': 'User Management'},
+            ephemeral=True
+        )
 
     # Create user
     result = call_user_manager(
@@ -300,21 +293,12 @@ def handle_register(interaction_data: dict):
     )
 
     if result and not result.get('error'):
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': '✅ Registration Successful',
-                    'description': f'Your account has been registered successfully!\n\n**Username:** {full_username}',
-                    'color': 0x00FF00,
-                    'footer': {
-                        'text': 'User Management'
-                    },
-                    'timestamp': datetime.now(timezone.utc).isoformat()
-                }]
-            },
-            'flags': 64
-        }
+        return create_success_embed(
+            title='Registration Successful',
+            description=f'Your account has been registered successfully!\n\n**Username:** {full_username}',
+            footer={'text': 'User Management'},
+            ephemeral=True
+        )
     else:
         # Extract error details
         error_msg = 'Failed to register account. Please try again later.'
@@ -331,17 +315,11 @@ def handle_register(interaction_data: dict):
             error_result=result
         )
 
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': error_msg,
-                    'color': 0xFF0000,
-                    'flags': 64
-                }]
-            }
-        }
+        return create_error_embed(
+            'Error',
+            error_msg,
+            ephemeral=True
+        )
 
 
 @CommandHandler.register('userinfo')
@@ -350,23 +328,16 @@ def handle_userinfo(interaction_data: dict):
     correlation_id = interaction_data.get('correlation_id', 'unknown')
 
     if not USER_MANAGER_URL:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Error',
-                    'description': 'User management service is not available.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+        return create_error_embed(
+            'Service Unavailable',
+            'User management service is not available.'
+        )
 
-    # Extract target user from options or use the command executor
     target_user_id = None
     target_username = None
 
-    # Check if a user was specified in options
-    options = interaction_data.get('data', {}).get('options', [])
+    data = interaction_data.get('data', {})
+    options = data.get('options', [])
     for option in options:
         if option.get('name') == 'user':
             value = option.get('value')
@@ -374,8 +345,7 @@ def handle_userinfo(interaction_data: dict):
                 target_user_id = str(value)
                 break
 
-    # Get username from resolved users if available
-    resolved = interaction_data.get('data', {}).get('resolved', {})
+    resolved = data.get('resolved', {})
     users = resolved.get('users', {})
     if target_user_id and target_user_id in users:
         target_user_data = users[target_user_id]
@@ -383,21 +353,13 @@ def handle_userinfo(interaction_data: dict):
         discriminator = target_user_data.get('discriminator', '0')
         target_username = f"{username}#{discriminator}" if discriminator != '0' else username
 
-    # If no user specified, use the command executor
     if not target_user_id:
         target_user_id = get_user_id_from_interaction(interaction_data)
         if not target_user_id:
-            return {
-                'type': 4,
-                'data': {
-                    'embeds': [{
-                        'title': 'Error',
-                        'description': 'Could not identify user.',
-                        'color': 0xFF0000
-                    }]
-                }
-            }
-        # Get username from interaction
+            return create_error_embed(
+                'User Identification Failed',
+                'Could not identify user.'
+            )
         member = interaction_data.get('member')
         user = (member.get('user') if member else None) or interaction_data.get('user')
         if user:
@@ -405,9 +367,8 @@ def handle_userinfo(interaction_data: dict):
             discriminator = user.get('discriminator', '0')
             target_username = f"{username}#{discriminator}" if discriminator != '0' else username
 
-            # Ensure user exists (create if needed) only for self
             existing_user = call_user_manager(f'/api/users/{target_user_id}', correlation_id=correlation_id)
-            if not existing_user:
+            if not existing_user or existing_user.get('error'):
                 call_user_manager(
                     '/api/users',
                     method='POST',
@@ -415,21 +376,28 @@ def handle_userinfo(interaction_data: dict):
                     correlation_id=correlation_id
                 )
 
+    if not target_user_id:
+        logger.error(
+            "target_user_id is None after all checks",
+            correlation_id=correlation_id,
+            interaction_data_keys=list(interaction_data.keys()) if interaction_data else []
+        )
+        return create_error_embed(
+            'User Identification Failed',
+            'Could not identify user. Please specify a user or ensure you are authenticated.'
+        )
+
     user = call_user_manager(f'/api/users/{target_user_id}', correlation_id=correlation_id)
 
-    if not user:
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'User Not Found',
-                    'description': 'User information not found.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+    if not user or user.get('error'):
+        error_msg = 'User information not found.'
+        if user and user.get('error'):
+            error_msg = f"Error: {user.get('error', 'Unknown error')}"
+        return create_error_embed(
+            'User Not Found',
+            error_msg
+        )
 
-    # Get rate limit info
     rate_limit_info = call_user_manager(
         f'/api/rate-limit/{target_user_id}?command=draw',
         correlation_id=correlation_id
@@ -454,26 +422,56 @@ def handle_userinfo(interaction_data: dict):
         }
     ]
 
-    if rate_limit_info:
+    if rate_limit_info and not rate_limit_info.get('error') and rate_limit_info.get('remaining') is not None:
         fields.append({
             'name': 'Rate Limit',
             'value': f"**Remaining:** {rate_limit_info.get('remaining', 0)}/{rate_limit_info.get('max', 0)}\n**Reset in:** {rate_limit_info.get('reset_in', 0)}s",
             'inline': True
         })
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': f"User Info: {target_username or user.get('username', 'Unknown')}",
-                'description': f"User information",
-                'color': 0x0066CC if not user.get('is_banned') else 0xFF0000,
-                'fields': fields,
-                'footer': {
-                    'text': 'User Management'
-                },
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }]
-        }
-    }
+    user_id = user.get('user_id') or target_user_id
+    thumbnail = None
+    if user_id:
+        try:
+            avatar_hash = None
+            discriminator = '0'
+
+            member = interaction_data.get('member')
+            interaction_user = (member.get('user') if member else None) or interaction_data.get('user')
+            if interaction_user and str(interaction_user.get('id')) == str(user_id):
+                avatar_hash = interaction_user.get('avatar')
+                discriminator = interaction_user.get('discriminator', '0')
+            else:
+                resolved = interaction_data.get('data', {}).get('resolved', {})
+                users = resolved.get('users', {})
+                if str(user_id) in users:
+                    user_data = users[str(user_id)]
+                    avatar_hash = user_data.get('avatar')
+                    discriminator = user_data.get('discriminator', '0')
+
+            avatar_url = get_user_avatar_url(str(user_id), avatar_hash, discriminator)
+            if avatar_url:
+                thumbnail = create_user_thumbnail(avatar_url)
+        except Exception as e:
+            logger.warning(
+                "Failed to get user avatar",
+                error=e,
+                correlation_id=correlation_id,
+                user_id=user_id
+            )
+
+    display_username = target_username or user.get('username', 'Unknown')
+    if not display_username or display_username == 'Unknown':
+        display_username = f"User {target_user_id}" if target_user_id else 'Unknown User'
+
+    embed_color = COLOR_INFO if not user.get('is_banned') else COLOR_ERROR
+    embed = create_embed(
+        title=f"User Info: {display_username}",
+        description='User information',
+        color=embed_color,
+        fields=fields,
+        footer={'text': 'User Management'},
+        thumbnail=thumbnail
+    )
+    return create_response(embed)
 

@@ -45,6 +45,47 @@ def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
     return None
 
 
+def is_user_registered(
+    user_id: str,
+    correlation_id: Optional[str] = None
+) -> bool:
+    """Check if user is registered in the system.
+
+    Args:
+        user_id: Discord user ID
+        correlation_id: Correlation ID for logging
+
+    Returns:
+        True if user is registered, False otherwise
+    """
+    if not USER_MANAGER_URL:
+        return False
+
+    try:
+        auth_token = get_auth_token()
+        headers = {}
+        if correlation_id:
+            headers['X-Correlation-ID'] = correlation_id
+        if auth_token:
+            headers['Authorization'] = f'Bearer {auth_token}'
+
+        user_response = requests.get(
+            f"{USER_MANAGER_URL}/api/users/{user_id}",
+            headers=headers,
+            timeout=2
+        )
+
+        return user_response.status_code == 200
+    except Exception as e:
+        logger.warning(
+            "Error checking if user is registered",
+            error=e,
+            correlation_id=correlation_id,
+            user_id=user_id
+        )
+        return False
+
+
 def check_user_allowed(
     user_id: str,
     command: str,
@@ -100,23 +141,11 @@ def check_user_allowed(
             is_premium = user_data.get('is_premium', False)
         elif user_response.status_code == 404:
             logger.debug(
-                "User not found, attempting to create",
+                "User not found",
                 correlation_id=correlation_id,
                 user_id=user_id
             )
-            if user_payload and user_payload.get('username'):
-                create_or_update_user(
-                    user_id,
-                    user_payload['username'],
-                    correlation_id=correlation_id,
-                    avatar=user_payload.get('avatar')
-                )
-            else:
-                logger.debug(
-                    "No user payload provided, skipping creation",
-                    correlation_id=correlation_id,
-                    user_id=user_id
-                )
+            # Don't auto-create here, user must register first
         else:
             # Error getting user, allow but log
             logger.warning(

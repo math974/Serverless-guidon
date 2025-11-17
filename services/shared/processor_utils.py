@@ -219,9 +219,11 @@ def process_discord_interaction(
 
             if logger:
                 logger.info("Processing command", correlation_id=correlation_id, command_name=command_name)
-            response = command_handler.handle(command_name, interaction)
+            interaction_with_context = interaction.copy()
+            if correlation_id:
+                interaction_with_context['correlation_id'] = correlation_id
+            response = command_handler.handle(command_name, interaction_with_context)
 
-            # Increment user usage after successful command processing (non-blocking)
             member = interaction.get('member')
             user = (member.get('user') if member else None) or interaction.get('user')
             if user:

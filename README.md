@@ -1,318 +1,120 @@
-# Serverless Discord Bot - GCP Architecture
+# Discord Bot Serverless on GCP
 
-A modular, serverless Discord bot built on Google Cloud Platform using API Gateway, Cloud Run, and Pub/Sub.
+A serverless Discord bot deployed on Google Cloud Platform using Cloud Functions and API Gateway.
 
-## Architecture Overview
+## Prerequisites
 
-```
-Discord → API Gateway → Proxy Service → Pub/Sub Topics → Processor Services → Proxy → Discord
-```
+1. Google Cloud Platform account with billing enabled
+2. Discord Developer Account
+3. gcloud CLI installed and configured
 
-**Key Features:**
+## Setup
 
-- Centralized Discord API interaction in proxy service
-- Event-driven architecture with Pub/Sub
-- Separate processors for different command categories
-- Secrets managed directly in GCP Secret Manager
-
-## Quick Start
-
-### 1. Setup Secrets in GCP Secret Manager
-
-Create the required secrets in GCP Secret Manager:
+### 1. GCP Configuration
 
 ```bash
-# Discord Public Key
-echo -n "your-discord-public-key" | gcloud secrets create DISCORD_PUBLIC_KEY \
-  --data-file=- \
-  --replication-policy="automatic" \
-  --project=YOUR_PROJECT_ID
+# Set your project ID
+export PROJECT_ID="your-project-id"
+gcloud config set project $PROJECT_ID
 
-# Discord Bot Token
-echo -n "your-discord-bot-token" | gcloud secrets create DISCORD_BOT_TOKEN \
-  --data-file=- \
-  --replication-policy="automatic" \
-  --project=YOUR_PROJECT_ID
-
-# Discord Application ID
-echo -n "your-discord-application-id" | gcloud secrets create DISCORD_APPLICATION_ID \
-  --data-file=- \
-  --replication-policy="automatic" \
-  --project=YOUR_PROJECT_ID
+# Enable required APIs
+gcloud services enable cloudfunctions.googleapis.com
+gcloud services enable apigateway.googleapis.com
+gcloud services enable servicecontrol.googleapis.com
+gcloud services enable servicemanagement.googleapis.com
 ```
 
-Or use the [GCP Console](https://console.cloud.google.com/security/secret-manager).
+### 2. Discord Bot Setup
 
-**Required secrets:**
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application
+3. Go to "Bot" section and create a bot
+4. Copy the Public Key from "General Information"
+5. Go to "OAuth2" > "URL Generator" and select:
+   - Scope: `applications.commands`
+   - Bot Permissions: `Send Messages`
 
-- `DISCORD_PUBLIC_KEY` - Discord public key for signature verification
-- `DISCORD_BOT_TOKEN` - Discord bot token
-- `DISCORD_APPLICATION_ID` - Discord application ID
-
-### 2. Grant Access to Cloud Run
-
-Grant the Cloud Run service account access to the secrets:
+### 3. Environment Configuration
 
 ```bash
-PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)')
-SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+# Copy environment template
+cp helloworld/.env.example helloworld/.env
 
-for secret in DISCORD_PUBLIC_KEY DISCORD_BOT_TOKEN DISCORD_APPLICATION_ID; do
-  gcloud secrets add-iam-policy-binding "${secret}" \
-    --member="serviceAccount:${SERVICE_ACCOUNT}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --project=YOUR_PROJECT_ID
-done
+# Edit .env with your Discord public key
+DISCORD_PUBLIC_KEY=your_actual_discord_public_key
 ```
 
-### 3. Deploy Services
+## Deployment
 
-Deploy all services in order:
+### Option 1: Cloud Functions Only
 
 ```bash
-# Create Pub/Sub topics
-./scripts/setup-pubsub.sh
+# Make deploy script executable
+chmod +x deploy.sh
 
-# Deploy proxy service
-./scripts/deploy-proxy.sh
-
-# Deploy processor services
-./scripts/deploy-processor-base.sh
-./scripts/deploy-processor-art.sh
-
-# Deploy registrar service
-./scripts/deploy-registrar.sh
+# Edit deploy.sh with your configuration
+# Then deploy
+./deploy.sh
 ```
 
-Or use the all-in-one script:
+### Option 2: With API Gateway
 
 ```bash
-./scripts/deploy-all.sh
+# First deploy the function
+./deploy.sh
+
+# Update openapi2-run.yaml with your function URL
+# Then deploy API Gateway
+chmod +x deploy-gateway.sh
+./deploy-gateway.sh
 ```
 
-### 4. Register Discord Commands
+## Discord Slash Commands Registration
 
-After deploying the registrar service:
+After deployment, register your slash commands:
 
 ```bash
-# Register all commands (recommended)
-./scripts/register-commands.sh
+# Install discord.py for command registration
+pip install discord.py
 
-# Or register a specific command
-./scripts/register-commands.sh hello
-
-# Or manually using curl
-REGISTRAR_URL=$(gcloud run services describe discord-registrar \
-  --region=europe-west1 \
-  --format="value(status.url)")
-curl -X POST ${REGISTRAR_URL}/register
+# Run command registration script
+python register_commands.py
 ```
 
-### 5. Configure API Gateway
+## Testing
 
-Update the API Gateway to point to your proxy service:
+1. Invite your bot to a Discord server using the OAuth2 URL
+2. Use `/hello` or `/ping` commands to test
+3. Check GCP Console for logs and monitoring
 
-```bash
-./scripts/update-gateway-proxy.sh
-```
+## Monitoring
 
-### 6. Configure Discord
+- **Logs**: `gcloud functions logs read discord-bot --region=europe-west1`
+- **Metrics**: GCP Console > Cloud Functions > discord-bot
 
-Set the API Gateway URL in your Discord application settings:
+## Costs
 
-- Interaction URL: `https://guidon-*.ew.gateway.dev/discord/interactions`
-
-## Project Structure
-
-```
-.
-├── .env                    # Local secrets (not in git)
-├── .env.example            # Template for .env
-├── services/               # All Cloud Run services
-│   ├── proxy/              # Proxy service (handles all Discord requests)
-│   │   ├── main.py         # Flask routes
-│   │   ├── config.py       # Configuration
-│   │   ├── discord_utils.py
-│   │   ├── command_handler.py
-│   │   ├── interaction_handler.py
-│   │   ├── pubsub_utils.py
-│   │   └── response_utils.py
-│   ├── processor-base/     # Base commands processor (ping, hello, help)
-│   ├── processor-art/      # Art commands processor (draw, snapshot)
-│   └── discord-registrar/  # Command registration service
-├── scripts/                # Deployment and setup scripts
-│   ├── sync-secrets-from-env.sh  # Sync .env to GCP Secret Manager
-│   ├── deploy-proxy.sh
-│   ├── deploy-processor-base.sh
-│   ├── deploy-processor-art.sh
-│   ├── deploy-registrar.sh
-│   ├── register-commands.sh      # Register Discord commands
-│   └── deploy-all.sh
-└── configs/
-    └── openapi2-run.yaml   # API Gateway configuration
-```
-
-## Services
-
-### Proxy Service (`discord-proxy`)
-
-- **Role**: Central point for all Discord interactions
-- **Secrets**: All Discord secrets (PUBLIC_KEY, BOT_TOKEN, APPLICATION_ID)
-- **Responsibilities**:
-  - Discord signature verification
-  - Simple command handling (ping, hello)
-  - Routing complex commands to Pub/Sub
-  - Receiving processor responses
-  - Sending all responses to Discord
-
-### Processor-Base (`discord-processor-base`)
-
-- **Role**: Process base commands
-- **Commands**: `/hello`, `/ping`, `/help`
-- **Secrets**: None (proxy handles Discord)
-
-### Processor-Art (`discord-processor-art`)
-
-- **Role**: Process art-related commands
-- **Commands**: `/draw`, `/snapshot`
-- **Secrets**: None (proxy handles Discord)
-
-### Discord-Registrar (`discord-registrar`)
-
-- **Role**: Register Discord slash commands
-- **Secrets**: DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID
-- **Endpoints**:
-  - `POST /register` - Register all commands
-  - `POST /register/<command>` - Register specific command
-  - `GET /commands` - List all commands
-
-## Registering Commands
-
-### Using the CLI Script (Recommended)
-
-```bash
-# Register all commands
-./scripts/register-commands.sh
-
-# Register a specific command
-./scripts/register-commands.sh hello
-./scripts/register-commands.sh ping
-./scripts/register-commands.sh draw
-```
-
-### Using curl Directly
-
-```bash
-# Get registrar URL
-REGISTRAR_URL=$(gcloud run services describe discord-registrar \
-  --region=europe-west1 \
-  --format="value(status.url)")
-
-# Register all commands
-curl -X POST ${REGISTRAR_URL}/register
-
-# Register a specific command
-curl -X POST ${REGISTRAR_URL}/register/hello
-
-# List all defined commands
-curl ${REGISTRAR_URL}/commands
-```
-
-### Available Commands
-
-**Base Commands:**
-
-- `/hello` - RATP service greeting
-- `/ping` - Test bot latency
-- `/help` - Show available commands
-
-**Art Commands:**
-
-- `/draw` - Draw a pixel on the canvas (requires: x, y, color)
-- `/snapshot` - Take a snapshot of the current canvas
-
-## Secret Management
-
-### Using .env File (Recommended)
-
-1. Create `.env` from template:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Fill in your Discord secrets in `.env`
-
-3. Sync to GCP:
-   ```bash
-   ./scripts/sync-secrets-from-env.sh
-   ```
-
-### Manual Secret Creation
-
-Alternatively, use the interactive script:
-
-```bash
-./scripts/setup-secrets.sh
-```
-
-## Environment Variables
-
-### Local Development
-
-- Use `.env` file (not committed to git)
-
-### Cloud Run Services
-
-- Secrets are loaded from GCP Secret Manager
-- Automatically injected as environment variables
-
-## Documentation
-
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Complete architecture documentation
-- [ARCHITECTURE_FLOW.md](ARCHITECTURE_FLOW.md) - Detailed flow diagrams
-
-## Deployment Workflow
-
-1. **Ensure secrets exist in GCP Secret Manager**:
-
-   ```bash
-   # Verify secrets exist
-   gcloud secrets list --project=YOUR_PROJECT_ID
-   ```
-
-2. **Deploy services**:
-
-   ```bash
-   ./scripts/deploy-all.sh
-   ```
-
-3. **Register commands**:
-
-   ```bash
-   ./scripts/register-commands.sh
-   ```
-
-4. **Update API Gateway**:
-   ```bash
-   ./scripts/update-gateway-proxy.sh
-   ```
+- Cloud Functions: ~$0.40 per million requests
+- API Gateway: ~$3.00 per million API calls
+- Typical small bot: <$1/month
 
 ## Troubleshooting
 
-### Secrets not found
+### Common Issues
 
-- Ensure all required secrets exist in GCP Secret Manager
-- Verify secrets are accessible by the Cloud Run service account
-- Check IAM permissions: `gcloud secrets get-iam-policy SECRET_NAME --project=YOUR_PROJECT_ID`
+1. **401 Unauthorized**: Check Discord public key in environment variables
+2. **Function timeout**: Increase timeout in deploy.sh
+3. **Discord verification failed**: Ensure webhook URL is correct
 
-### Service deployment fails
+### Debug Commands
 
-- Check that secrets exist in GCP Secret Manager
-- Verify PROJECT_ID and REGION are correct
+```bash
+# Check function status
+gcloud functions describe discord-bot --region=europe-west1
 
-### Commands not working
+# View recent logs
+gcloud functions logs read discord-bot --region=europe-west1 --limit=50
 
-- Verify commands are registered: `curl <REGISTRAR_URL>/commands`
-- Check API Gateway URL is set in Discord settings
-- Verify proxy service is deployed and accessible
+# Test function locally
+functions-framework --target=discord_bot --debug
+```

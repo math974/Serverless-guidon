@@ -8,6 +8,21 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from command_registry import CommandHandler  # noqa: E402
 from shared.observability import init_observability  # noqa: E402
+from shared.embed_utils import (  # noqa: E402
+    create_error_embed,
+    create_warning_embed,
+    create_info_embed,
+    create_success_embed,
+    create_embed,
+    create_response,
+    extract_user_info,
+    create_user_author,
+    create_user_thumbnail,
+    COLOR_PREMIUM,
+    COLOR_SNAPSHOT,
+    COLOR_COLORS,
+    COLOR_INFO
+)
 from canvas_manager import CanvasManager
 from user_client import UserManagementClient
 
@@ -74,21 +89,12 @@ def _extract_options(interaction: Optional[dict]) -> Dict[str, Any]:
     if not interaction:
         return options
     for option in interaction.get('data', {}).get('options', []):
-        options[option['name']] = option.get('value')
+            options[option['name']] = option.get('value')
     return options
 
 
-def _extract_user_info(interaction: Optional[dict]) -> Tuple[Optional[str], Optional[str]]:
-    if not interaction:
-        return None, None
-    user_payload = interaction.get('member', {}).get('user') or interaction.get('user', {})
-    if not user_payload:
-        return None, None
-    username = user_payload.get('username', 'Unknown')
-    discriminator = user_payload.get('discriminator')
-    if discriminator and discriminator != '0':
-        username = f"{username}#{discriminator}"
-    return user_payload.get('id'), username
+# Use shared extract_user_info
+_extract_user_info = extract_user_info
 
 
 def _parse_color(color_input: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -110,54 +116,30 @@ def _parse_color(color_input: str) -> Tuple[bool, Optional[str], Optional[str]]:
     return False, None, f"Invalid color. Use `#RRGGBB` or a named color ({available_colors})."
 
 
-def _error_embed(title: str, description: str, ephemeral: bool = True) -> dict:
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': f'❌ {title}',
-                'description': description,
-                'color': 0xFF4C4C,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }],
-            'flags': 64 if ephemeral else 0
-        }
-    }
+# Use shared create_error_embed
+_error_embed = create_error_embed
 
 
 def _rate_limit_embed(result: Dict[str, Any], command_label: str) -> dict:
+    """Create rate limit warning embed."""
     reset_time = result.get('reset_in', 0)
     minutes = reset_time // 60
     seconds = reset_time % 60
     time_str = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': '⏱️ Rate limit exceeded',
-                'description': f'You have reached the limit for `{command_label}`.\nPlease wait **{time_str}**.',
-                'color': 0xFF6B6B,
-                'fields': [
-                    {
-                        'name': 'Remaining',
-                        'value': f"{result.get('remaining', 0)}/{result.get('max', 0)}",
-                        'inline': True
-                    },
-                    {
-                        'name': 'Reset in',
-                        'value': time_str,
-                        'inline': True
-                    }
-                ],
-                'footer': {
-                    'text': 'Tip: premium users enjoy larger limits.'
-                },
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }],
-            'flags': 64
-        }
-    }
+    return create_warning_embed(
+        title='Rate Limit Exceeded',
+        description=f'You have reached the maximum limit for `{command_label}` commands.\n\n**Please wait:** {time_str}',
+        fields=[
+            {
+                'name': 'Current Status',
+                'value': f'**Remaining:** {result.get("remaining", 0)}/{result.get("max", 0)}\n**Reset in:** {time_str}',
+                'inline': False
+            }
+        ],
+        footer={'text': 'Tip: Premium users enjoy larger rate limits'},
+        ephemeral=True
+    )
 
 
 # --- Commands ---------------------------------------------------------------
@@ -168,7 +150,7 @@ def handle_draw(interaction: dict = None):
     if CANVAS_MANAGER is None:
         return _error_embed("Service unavailable", "Canvas backend is warming up, please try again shortly.")
 
-    user_id, username = _extract_user_info(interaction)
+    user_id, username, avatar_url = _extract_user_info(interaction)
     if not user_id:
         return _error_embed("Unknown user", "Unable to resolve your Discord identity.")
 
@@ -225,34 +207,30 @@ def handle_draw(interaction: dict = None):
 
     stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
 
-    fields = [
-        {'name': '📍 Position', 'value': f'X: {x} / Y: {y}', 'inline': True},
-        {'name': '🎨 Color', 'value': color_hex, 'inline': True},
-        {'name': '👤 Artist', 'value': username, 'inline': True}
-    ]
-    if stats.get('total_draws') is not None:
-        fields.append({'name': '🎯 Total draws', 'value': str(stats['total_draws']), 'inline': True})
-    if stats.get('is_premium'):
-        fields.append({'name': '💎 Status', 'value': 'Premium', 'inline': True})
+    fields = []
+    fields.append({'name': 'Coordinates', 'value': f'**X:** {x} | **Y:** {y}', 'inline': False})
+    fields.append({'name': 'Color', 'value': f'`{color_hex}`', 'inline': True})
     if canvas_result.get('previous_color') and canvas_result.get('changed'):
-        fields.append({'name': 'Previous color', 'value': canvas_result['previous_color'], 'inline': True})
+        fields.append({'name': 'Previous Color', 'value': f'`{canvas_result["previous_color"]}`', 'inline': True})
 
-    description = "Pixel stored on the shared 48x48 canvas."
+    if stats.get('total_draws') is not None:
+        fields.append({'name': 'Your Total Draws', 'value': f'**{stats["total_draws"]}** pixels', 'inline': True})
+    if stats.get('is_premium'):
+        fields.append({'name': 'Status', 'value': 'Premium', 'inline': True})
+
+    description = "Pixel successfully placed on the shared 48×48 canvas!"
     if not canvas_result.get('changed'):
-        description += "\n*(Pixel already had this color)*"
+        description = "Pixel already had this color. No changes made."
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': '🎨 Pixel placed!',
-                'description': description,
-                'color': int(color_hex.replace('#', ''), 16),
-                'fields': fields,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }]
-        }
-    }
+    return create_success_embed(
+        title='Pixel Placed Successfully',
+        description=description,
+        color=int(color_hex.replace('#', ''), 16),
+        fields=fields,
+        footer={'text': f'Artist: {username} • Canvas: 48×48'},
+        thumbnail=create_user_thumbnail(avatar_url) if avatar_url else None,
+        author=create_user_author(username, avatar_url) if avatar_url else None
+    )
 
 @CommandHandler.register('snapshot')
 def handle_snapshot(interaction: dict = None):
@@ -261,7 +239,7 @@ def handle_snapshot(interaction: dict = None):
     if CANVAS_MANAGER is None:
         return _error_embed("Service unavailable", "Snapshot backend is temporarily unavailable.")
 
-    user_id, username = _extract_user_info(interaction)
+    user_id, username, avatar_url = _extract_user_info(interaction)
     if not user_id:
         return _error_embed("Unknown user", "Unable to resolve your Discord identity.")
 
@@ -296,35 +274,40 @@ def handle_snapshot(interaction: dict = None):
         )
 
     snapshot_url = result.get('public_url')
+
     fields = [
-        {'name': '📏 Size', 'value': f"{result.get('image_size', 480)} px", 'inline': True},
-        {'name': '🎨 Pixels', 'value': str(result.get('pixel_count', 2304)), 'inline': True}
-    ]
-    if snapshot_url and snapshot_url.startswith('http'):
-        fields.append({'name': '🔗 Download', 'value': f'[Open in browser]({snapshot_url})', 'inline': False})
-
-    embed = {
-        'title': '📸 Canvas snapshot created!',
-        'description': f'Snapshot captured by **{username}**',
-        'color': 0x4ECDC4,
-        'fields': fields,
-        'timestamp': datetime.now(timezone.utc).isoformat()
-    }
-    if snapshot_url and (snapshot_url.startswith('http://') or snapshot_url.startswith('https://')):
-        embed['image'] = {'url': snapshot_url}
-        embed['thumbnail'] = {'url': snapshot_url}
-
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [embed]
+        {
+            'name': 'Image Details',
+            'value': f'**Size:** {result.get("image_size", 480)}×{result.get("image_size", 480)} px\n**Total Pixels:** {result.get("pixel_count", 2304)}',
+                        'inline': False
         }
-    }
+    ]
+
+    if snapshot_url and snapshot_url.startswith('http'):
+        fields.append({
+            'name': 'Download',
+            'value': f'[Open full-size image in browser]({snapshot_url})',
+            'inline': False
+        })
+
+    image = {'url': snapshot_url} if snapshot_url and (snapshot_url.startswith('http://') or snapshot_url.startswith('https://')) else None
+
+    embed = create_embed(
+        title='Canvas Snapshot Created',
+        description=f'Snapshot successfully captured by **{username}**',
+        color=COLOR_SNAPSHOT,
+        fields=fields,
+        footer={'text': 'Use /snapshot anytime to save the current canvas state'},
+        thumbnail=create_user_thumbnail(avatar_url) if avatar_url else None,
+        image=image,
+        author=create_user_author(username, avatar_url) if avatar_url else None
+    )
+    return create_response(embed)
 
 @CommandHandler.register('stats')
 def handle_stats(interaction: dict = None):
     correlation_id = interaction.get('correlation_id') if interaction else None
-    user_id, username = _extract_user_info(interaction)
+    user_id, username, avatar_url = _extract_user_info(interaction)
 
     if not user_id or CANVAS_MANAGER is None:
         return _error_embed("Unavailable", "Unable to retrieve statistics right now.")
@@ -343,35 +326,40 @@ def handle_stats(interaction: dict = None):
 
     is_premium = user_stats.get('is_premium', False)
     tier_label = 'Premium' if is_premium else 'Standard'
-    tier_icon = '⭐' if is_premium else '🔵'
 
-    fields = [
-        {'name': '🎖️ Tier', 'value': f'{tier_icon} {tier_label}', 'inline': True},
-        {'name': '🎨 Your pixels', 'value': str(user_stats.get('total_draws', 0)), 'inline': True},
-        {
-            'name': '⏱️ Draw limit',
-            'value': f"{draw_limits.get('remaining', 0)}/{draw_limits.get('max', 0)}",
-            'inline': True
-        },
-        {'name': '🧮 Canvas pixels', 'value': str(canvas_stats.get('total_pixels', 0)), 'inline': True},
-        {'name': '👥 Contributors', 'value': str(canvas_stats.get('unique_contributors', 0)), 'inline': True}
-    ]
+    fields = []
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': f'📊 Stats for {username}',
-                'color': 0xFFD700 if is_premium else 0x0066CC,
-                'fields': fields,
-                'footer': {
-                    'text': 'Use /draw and /snapshot to climb the leaderboard!'
-                },
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }],
-            'flags': 64
-        }
-    }
+    # - User information -
+    fields.append({
+        'name': 'Your Account',
+        'value': f'**Tier:** {tier_label}\n**Your Pixels:** {user_stats.get("total_draws", 0)}',
+        'inline': False
+    })
+
+    # - Rate limits -
+    fields.append({
+        'name': 'Rate Limits',
+        'value': f'**Draws remaining:** {draw_limits.get("remaining", 0)}/{draw_limits.get("max", 0)}',
+        'inline': False
+    })
+
+    # - Canvas statistics -
+    fields.append({
+        'name': 'Canvas Statistics',
+        'value': f'**Total pixels:** {canvas_stats.get("total_pixels", 0)}\n**Contributors:** {canvas_stats.get("unique_contributors", 0)}',
+        'inline': False
+    })
+
+    embed = create_embed(
+        title='Statistics Dashboard',
+        description=f'Detailed statistics for **{username}**',
+        color=COLOR_PREMIUM if is_premium else COLOR_INFO,
+        fields=fields,
+        footer={'text': 'Use /draw and /snapshot to climb the leaderboard • /leaderboard to see top artists'},
+        thumbnail=create_user_thumbnail(avatar_url) if avatar_url else None,
+        author=create_user_author(username, avatar_url) if avatar_url else None
+    )
+    return create_response(embed, ephemeral=True)
 
 
 @CommandHandler.register('colors')
@@ -390,24 +378,19 @@ def handle_colors(interaction: dict = None):
         if not valid_items:
             continue
         color_list = ', '.join(f'`{c}`' for c in valid_items)
-        fields.append({'name': f'🎨 {label}', 'value': color_list, 'inline': False})
+        fields.append({'name': label, 'value': color_list, 'inline': False})
 
     fields.append({
-        'name': 'Usage',
-        'value': '`/draw x:10 y:10 color:red`\n`/draw x:10 y:10 color:#FFAA00`',
+        'name': 'Usage Examples',
+        'value': '```\n/draw x:10 y:10 color:red\n/draw x:10 y:10 color:#FFAA00\n```',
         'inline': False
     })
 
-    return {
-        'type': 4,
-        'data': {
-            'embeds': [{
-                'title': 'Available colors',
-                'description': f'Use {len(COLOR_NAMES)} named colors or any hex code `#RRGGBB`.',
-                'color': 0x00AAFF,
-                'fields': fields,
-                'timestamp': datetime.now(timezone.utc).isoformat()
-            }],
-            'flags': 64
-        }
-    }
+    embed = create_embed(
+        title='Available Colors',
+        description=f'You can use **{len(COLOR_NAMES)} named colors** or any **hex code** format `#RRGGBB`.\n\nChoose from the categories below or use your own hex color.',
+        color=COLOR_COLORS,
+        fields=fields,
+        footer={'text': 'Tip: Use /draw x:<number> y:<number> color:<name or hex> to place pixels'}
+    )
+    return create_response(embed, ephemeral=True)

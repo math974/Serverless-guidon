@@ -5,6 +5,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from shared.observability import init_observability  # noqa: E402
+from shared.embed_utils import create_error_embed  # noqa: E402
 
 # Initialize logger for this module
 logger, _ = init_observability('discord-processor-base-registry', app=None)
@@ -59,28 +60,15 @@ class CommandHandler:
                     correlation_id=correlation_id
                 )
 
-                return {
-                    'type': 4,
-                    'data': {
-                        'embeds': [{
-                            'title': 'Command Error',
-                            'description': f'An error occurred while processing `/{command_name}`. Please try again later.',
-                            'color': 0xFF0000,
-                            'footer': {
-                                'text': 'Error logged - service continues running'
-                            }
-                        }]
-                    }
-                }
+                return create_error_embed(
+                    'Command Error',
+                    f'An error occurred while processing `/{command_name}`. Please try again later.',
+                    ephemeral=True
+                )
 
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Command Not Found',
-                    'description': f'Command `/{command_name}` is not available in this service.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+        return create_error_embed(
+            'Command Not Found',
+            f'Command `/{command_name}` is not available in this service.',
+            ephemeral=True
+        )
 

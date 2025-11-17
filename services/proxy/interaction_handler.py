@@ -4,12 +4,15 @@ from response_utils import get_proxy_url
 from user_integration import (
     get_user_id_from_interaction,
     check_user_allowed,
-    create_or_update_user,
-    get_rate_limit_error_response
+    get_rate_limit_error_response,
+    is_user_registered
 )
 from shared.observability import init_observability
 
 logger, _ = init_observability('discord-proxy', app=None)
+
+# - Commands that don't require registration -
+NO_REGISTRATION_REQUIRED = {'register', 'help', 'ping', 'hello'}
 
 
 def process_interaction(
@@ -53,10 +56,26 @@ def process_interaction(
                 'avatar': user.get('avatar')
             }
 
+    user_id = get_user_id_from_interaction(interaction_data)
+
+    # - Check if user is registered (except for commands that don't require it) -
+    if user_id and command_name not in NO_REGISTRATION_REQUIRED:
+        if not is_user_registered(user_id, correlation_id=correlation_id):
+            if interaction_type == 'discord':
+                from shared.embed_utils import create_error_embed
+                return create_error_embed(
+                    'Registration Required',
+                    f'You must register your account before using commands.\n\nUse `/register` to create your account.',
+                    ephemeral=True
+                ), 200
+            else:
+                return {
+                    'status': 'error',
+                    'message': 'You must register your account before using commands. Use /register to create your account.'
+                }, 403
+
     art_commands = {'draw', 'snapshot'}
     enforce_limits = command_name in art_commands
-
-    user_id = get_user_id_from_interaction(interaction_data)
     if user_id and enforce_limits:
         allowed, rate_limit_info, error_message = check_user_allowed(
             user_id,
@@ -74,7 +93,7 @@ def process_interaction(
                         'type': 4,
                         'data': {
                             'content': f"❌ {error_message or 'Access denied'}",
-                            'flags': 64  # Ephemeral
+                            'flags': 64
                         }
                     }, 200
                 else:
@@ -83,27 +102,7 @@ def process_interaction(
                         'message': error_message or 'Access denied'
                     }, 403
 
-        if interaction_type == 'discord' and user_payload:
-            import threading
-            def create_user_async():
-                try:
-                    create_or_update_user(
-                        user_id,
-                        user_payload['username'],
-                        correlation_id=correlation_id,
-                        avatar=user_payload.get('avatar')
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Failed to create/update user (async)",
-                        error=e,
-                        correlation_id=correlation_id,
-                        user_id=user_id
-                    )
-
-            thread = threading.Thread(target=create_user_async, daemon=True)
-            thread.start()
-
+    # - Handle simple commands -
     simple_response = handle_simple_command(command_name, interaction_type)
     if simple_response:
         return simple_response, 200
