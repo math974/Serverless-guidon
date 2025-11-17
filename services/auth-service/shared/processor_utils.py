@@ -129,11 +129,34 @@ def increment_user_usage_async(
     if not user_manager_url:
         return
 
+    # Get Google Cloud identity token for authentication
+    auth_token = None
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+        request_session = google_requests.Request()
+        target_audience = user_manager_url
+        auth_token = id_token.fetch_id_token(request_session, target_audience)
+    except Exception as e:
+        if logger:
+            logger.warning(
+                "Failed to get identity token for user-manager",
+                error=e,
+                correlation_id=correlation_id
+            )
+        return
+
+    headers = {}
+    if correlation_id:
+        headers['X-Correlation-ID'] = correlation_id
+    if auth_token:
+        headers['Authorization'] = f'Bearer {auth_token}'
+
     try:
         response = requests.post(
             f"{user_manager_url}/api/users/{user_id}/increment",
             json={'command': command},
-            headers={'X-Correlation-ID': correlation_id} if correlation_id else {},
+            headers=headers,
             timeout=2
         )
         if response.status_code == 200 and logger:
@@ -142,6 +165,14 @@ def increment_user_usage_async(
                 correlation_id=correlation_id,
                 user_id=user_id,
                 command=command
+            )
+        elif response.status_code != 200 and logger:
+            logger.warning(
+                "Failed to increment user usage",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                status_code=response.status_code,
+                response_text=response.text[:200]
             )
     except Exception as e:
         # Non-blocking, just log warning

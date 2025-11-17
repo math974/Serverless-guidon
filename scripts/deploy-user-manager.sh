@@ -18,6 +18,13 @@ echo "Preparing service..."
 "${SCRIPT_DIR}/prepare-services.sh"
 
 echo "Deploying user-manager..."
+RATE_LIMITS_JSON=${RATE_LIMITS_JSON:-}
+
+ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db"
+if [ ! -z "${RATE_LIMITS_JSON}" ]; then
+  ENV_VARS="${ENV_VARS},RATE_LIMITS_JSON=$(python3 -c 'import json,os;print(json.dumps(json.loads(os.environ["RATE_LIMITS_JSON"])))')"
+fi
+
 gcloud functions deploy "${SERVICE_NAME}" \
   --gen2 \
   --runtime=python311 \
@@ -26,7 +33,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --entry-point=user_management_handler \
   --trigger-http \
   --project="${PROJECT_ID}" \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db" \
+  --set-env-vars="${ENV_VARS}" \
   --timeout=300s \
   --memory=512MB \
   2>&1 | grep -v "No change" || true

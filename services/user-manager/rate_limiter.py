@@ -3,13 +3,11 @@ import os
 import time
 from typing import Optional, Dict
 from google.cloud import firestore
-from cache import cache
 from shared.observability import init_observability
 
 logger, _ = init_observability('user-management-service', app=None)
 
 _db_client = None
-
 
 def get_db():
     """Get Firestore client singleton."""
@@ -19,25 +17,38 @@ def get_db():
         _db_client = firestore.Client(database=database_id)
     return _db_client
 
-
 class RateLimiter:
     """Rate limiting system with configurable limits per command."""
 
-    # --- Rate limit configurations ---
-    RATE_LIMITS = {
-        'draw': {
-            'default': {'calls': 10, 'period': 60},
-            'premium': {'calls': 30, 'period': 60}
-        },
-        'snapshot': {
-            'default': {'calls': 5, 'period': 300},
-            'premium': {'calls': 15, 'period': 300}
-        },
-        'default': {
-            'default': {'calls': 30, 'period': 60},
-            'premium': {'calls': 60, 'period': 60}
-        }
-    }
+    RATE_LIMITS = None
+
+    @classmethod
+    def load_rate_limits(cls):
+        if cls.RATE_LIMITS is None:
+            import json
+            default_limits = {
+                'draw': {
+                    'default': {'calls': 10, 'period': 60},
+                    'premium': {'calls': 30, 'period': 60}
+                },
+                'snapshot': {
+                    'default': {'calls': 5, 'period': 300},
+                    'premium': {'calls': 15, 'period': 300}
+                },
+                'default': {
+                    'default': {'calls': 30, 'period': 60},
+                    'premium': {'calls': 60, 'period': 60}
+                }
+            }
+            env_value = os.getenv('RATE_LIMITS_JSON')
+            if env_value:
+                try:
+                    cls.RATE_LIMITS = json.loads(env_value)
+                except json.JSONDecodeError:
+                    cls.RATE_LIMITS = default_limits
+            else:
+                cls.RATE_LIMITS = default_limits
+        return cls.RATE_LIMITS
 
     def __init__(self):
         self.db = get_db()
@@ -61,20 +72,10 @@ class RateLimiter:
         Returns:
             Dict with keys: allowed (bool), remaining (int), reset_in (int), max (int)
         """
-        # --- Try cache first ---
-        cache_key = f"rate_limit:{user_id}:{command}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            logger.debug(
-                "Rate limit check from cache",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                command=command
-            )
-            return cached
+        rate_limits = self.load_rate_limits()
 
         # --- Get rate limit config ---
-        command_limits = self.RATE_LIMITS.get(command, self.RATE_LIMITS['default'])
+        command_limits = rate_limits.get(command, rate_limits['default'])
         limit_type = 'premium' if is_premium else 'default'
         config = command_limits[limit_type]
 
@@ -103,7 +104,6 @@ class RateLimiter:
                 'reset_in': period_seconds,
                 'max': max_calls
             }
-            cache.set(cache_key, result, ttl=5)
 
             logger.debug(
                 "Rate limit check: first call",
@@ -133,8 +133,6 @@ class RateLimiter:
                 'reset_in': reset_in,
                 'max': max_calls
             }
-            cache.set(cache_key, result, ttl=5)
-
             logger.warning(
                 "Rate limit exceeded",
                 correlation_id=correlation_id,
@@ -154,7 +152,6 @@ class RateLimiter:
             'reset_in': period_seconds,
             'max': max_calls
         }
-        cache.set(cache_key, result, ttl=5)
 
         logger.debug(
             "Rate limit check: allowed",
@@ -182,7 +179,6 @@ class RateLimiter:
             # --- Reset specific command ---
             limit_key = f"{user_id}_{command}"
             self.rate_limits_collection.document(limit_key).delete()
-            cache.delete(f"rate_limit:{user_id}:{command}")
 
             logger.info(
                 "Rate limit reset for command",

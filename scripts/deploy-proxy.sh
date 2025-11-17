@@ -49,6 +49,16 @@ if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
     exit 1
 fi
 
+# Fetch user-manager URL if not provided
+if [ -z "${USER_MANAGER_URL:-}" ]; then
+    USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+fi
+
+ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
+if [ ! -z "${USER_MANAGER_URL}" ]; then
+    ENV_VARS="${ENV_VARS},USER_MANAGER_URL=${USER_MANAGER_URL}"
+fi
+
 echo "Deploying proxy..."
 gcloud functions deploy "${SERVICE_NAME}" \
   --gen2 \
@@ -59,7 +69,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --trigger-http \
   --allow-unauthenticated \
   --project="${PROJECT_ID}" \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production" \
+  --set-env-vars="${ENV_VARS}" \
   --set-secrets="DISCORD_PUBLIC_KEY=DISCORD_PUBLIC_KEY:latest,DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest,DISCORD_APPLICATION_ID=DISCORD_APPLICATION_ID:latest" \
   --timeout=300s \
   --memory=512MB \

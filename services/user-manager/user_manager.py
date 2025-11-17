@@ -53,15 +53,24 @@ class UserManager:
         doc = self.users_collection.document(user_id).get()
         if doc.exists:
             user_data = doc.to_dict()
-            # --- Cache for 60 seconds ---
-            if use_cache:
-                cache.set(f"user:{user_id}", user_data, ttl=60)
             logger.debug(
                 "User retrieved from Firestore",
                 correlation_id=correlation_id,
-                user_id=user_id
+                user_id=user_id,
+                has_user_data=bool(user_data),
+                user_keys=list(user_data.keys()) if user_data else []
             )
+            # --- Cache for 60 seconds ---
+            if use_cache:
+                cache.set(f"user:{user_id}", user_data, ttl=60)
             return user_data
+        else:
+            logger.debug(
+                "User document does not exist in Firestore",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                collection_id=self.users_collection.id
+            )
 
         logger.warning(
             "User not found",
@@ -92,16 +101,15 @@ class UserManager:
             'user_id': user_id,
             'username': username,
             'updated_at': firestore.SERVER_TIMESTAMP,
-            'total_commands': 0,
-            'total_draws': 0,
-            'is_banned': False,
-            'is_premium': False,
             **kwargs
         }
 
         # --- Check if user exists ---
         existing = self.get_user(user_id, use_cache=False, correlation_id=correlation_id)
         if not existing:
+            user_data.setdefault('total_draws', 0)
+            user_data.setdefault('is_banned', False)
+            user_data.setdefault('is_premium', False)
             user_data['created_at'] = firestore.SERVER_TIMESTAMP
             logger.info(
                 "Creating new user",
@@ -110,6 +118,9 @@ class UserManager:
                 username=username
             )
         else:
+            for field in ('total_draws', 'is_banned', 'is_premium'):
+                if field not in user_data and existing.get(field) is not None:
+                    user_data[field] = existing[field]
             logger.info(
                 "Updating existing user",
                 correlation_id=correlation_id,
@@ -118,21 +129,81 @@ class UserManager:
             )
 
         # --- Update Firestore ---
-        self.users_collection.document(user_id).set(user_data, merge=True)
+        try:
+            logger.debug(
+                "Saving user to Firestore",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                username=username,
+                collection_id=self.users_collection.id,
+                database_id=getattr(self.db, '_database', 'default')
+            )
+
+            doc_ref = self.users_collection.document(user_id)
+            doc_ref.set(user_data, merge=True)
+
+            verify_doc = doc_ref.get()
+            if verify_doc.exists:
+                logger.info(
+                    "User saved to Firestore successfully",
+                    correlation_id=correlation_id,
+                    user_id=user_id,
+                    username=username,
+                    document_exists=True
+                )
+            else:
+                logger.error(
+                    "User document does not exist after save",
+                    correlation_id=correlation_id,
+                    user_id=user_id,
+                    username=username
+                )
+                raise Exception("Failed to create user document in Firestore")
+        except Exception as e:
+            logger.error(
+                "Failed to save user to Firestore",
+                error=e,
+                correlation_id=correlation_id,
+                user_id=user_id,
+                username=username
+            )
+            raise
 
         # --- Invalidate cache ---
         cache.delete(f"user:{user_id}")
 
         logger.info(
-            "User saved",
+            "Cache invalidated",
             correlation_id=correlation_id,
-            user_id=user_id,
-            username=username
+            user_id=user_id
         )
 
         # --- Retrieve saved user to get actual timestamps (not Sentinel objects) ---
+        import time
+        time.sleep(0.1)
+
         saved_user = self.get_user(user_id, use_cache=False, correlation_id=correlation_id)
-        return saved_user if saved_user else user_data
+        if saved_user:
+            logger.info(
+                "User retrieved after save",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                has_created_at='created_at' in saved_user
+            )
+            return saved_user
+        else:
+            logger.warning(
+                "User not found immediately after save, returning user_data",
+                correlation_id=correlation_id,
+                user_id=user_id
+            )
+            clean_data = {}
+            for k, v in user_data.items():
+                if v == firestore.SERVER_TIMESTAMP:
+                    clean_data[k] = None
+                else:
+                    clean_data[k] = v
+            return clean_data
 
     def increment_usage(
         self,
@@ -148,14 +219,13 @@ class UserManager:
             correlation_id: Correlation ID for logging
         """
         updates = {
-            'total_commands': firestore.Increment(1),
             'updated_at': firestore.SERVER_TIMESTAMP
         }
 
         if command == 'draw':
             updates['total_draws'] = firestore.Increment(1)
 
-        self.users_collection.document(user_id).update(updates)
+        self.users_collection.document(user_id).set(updates, merge=True)
 
         # --- Invalidate cache ---
         cache.delete(f"user:{user_id}")
@@ -184,11 +254,11 @@ class UserManager:
             True if successful, False otherwise
         """
         try:
-            self.users_collection.document(user_id).update({
+            self.users_collection.document(user_id).set({
                 'is_banned': True,
                 'ban_reason': reason,
                 'banned_at': firestore.SERVER_TIMESTAMP
-            })
+            }, merge=True)
             cache.delete(f"user:{user_id}")
 
             logger.info(
@@ -222,11 +292,12 @@ class UserManager:
             True if successful, False otherwise
         """
         try:
-            self.users_collection.document(user_id).update({
+            # Use set with merge=True to handle case where user doesn't exist yet
+            self.users_collection.document(user_id).set({
                 'is_banned': False,
                 'ban_reason': None,
                 'unbanned_at': firestore.SERVER_TIMESTAMP
-            })
+            }, merge=True)
             cache.delete(f"user:{user_id}")
 
             logger.info(
@@ -261,10 +332,29 @@ class UserManager:
             True if successful, False otherwise
         """
         try:
-            self.users_collection.document(user_id).update({
-                'is_premium': is_premium,
-                'premium_updated_at': firestore.SERVER_TIMESTAMP
-            })
+            doc_ref = self.users_collection.document(user_id)
+            doc = doc_ref.get()
+
+            if not doc.exists:
+                logger.warning(
+                    "User does not exist, creating user before setting premium",
+                    correlation_id=correlation_id,
+                    user_id=user_id
+                )
+                doc_ref.set({
+                    'user_id': user_id,
+                    'is_premium': is_premium,
+                    'is_banned': False,
+                    'created_at': firestore.SERVER_TIMESTAMP,
+                    'premium_updated_at': firestore.SERVER_TIMESTAMP,
+                    'usage': {}
+                })
+            else:
+                doc_ref.update({
+                    'is_premium': is_premium,
+                    'premium_updated_at': firestore.SERVER_TIMESTAMP
+                })
+
             cache.delete(f"user:{user_id}")
 
             logger.info(
@@ -277,9 +367,11 @@ class UserManager:
         except Exception as e:
             logger.error(
                 "Error setting premium status",
-                error=e,
+                error=str(e),
                 correlation_id=correlation_id,
                 user_id=user_id
             )
+            import traceback
+            traceback.print_exc()
             return False
 

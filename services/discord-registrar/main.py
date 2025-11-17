@@ -2,6 +2,7 @@
 Uses Functions Framework for Cloud Functions Gen2
 """
 import os
+import time
 import requests
 from functions_framework import http
 from flask import Request, jsonify
@@ -62,10 +63,103 @@ ART_COMMANDS = [
         "name": "snapshot",
         "description": "Take a snapshot of the current canvas",
         "type": 1
+    },
+    {
+        "name": "stats",
+        "description": "Show your statistics and global stats",
+        "type": 1
+    },
+    {
+        "name": "colors",
+        "description": "List supported color names and examples",
+        "type": 1
     }
 ]
 
-ALL_COMMANDS = BASE_COMMANDS + ART_COMMANDS
+USER_COMMANDS = [
+    {
+        "name": "leaderboard",
+        "description": "Show top users by draws",
+        "type": 1
+    },
+    {
+        "name": "userinfo",
+        "description": "Show user information",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to show information for (optional, defaults to you)",
+                "type": 6,  # USER type
+                "required": False
+            }
+        ]
+    },
+    {
+        "name": "register",
+        "description": "Register your account in the system",
+        "type": 1
+    }
+]
+
+ADMIN_COMMANDS = [
+    {
+        "name": "ban",
+        "description": "Ban a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to ban",
+                "type": 6,  # USER type
+                "required": True
+            },
+            {
+                "name": "reason",
+                "description": "Reason for the ban",
+                "type": 3,  # STRING type
+                "required": False
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    },
+    {
+        "name": "unban",
+        "description": "Unban a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to unban",
+                "type": 6,  # USER type
+                "required": True
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    },
+    {
+        "name": "setpremium",
+        "description": "Set premium status for a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to set premium status",
+                "type": 6,  # USER type
+                "required": True
+            },
+            {
+                "name": "premium",
+                "description": "Enable or disable premium",
+                "type": 5,  # BOOLEAN type
+                "required": True
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    }
+]
+
+ALL_COMMANDS = BASE_COMMANDS + ART_COMMANDS + USER_COMMANDS + ADMIN_COMMANDS
 
 
 def register_command(command: dict, correlation_id: str = None) -> dict:
@@ -172,13 +266,22 @@ def register_all(request: Request):
     logger.info(f"Starting registration of {len(ALL_COMMANDS)} commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
 
     results = []
-    for command in ALL_COMMANDS:
+    for i, command in enumerate(ALL_COMMANDS):
+        # Add delay between registrations to avoid rate limits (except for first command)
+        if i > 0:
+            time.sleep(2)  # 2 second delay between commands
+
         result = register_command(command, correlation_id)
         results.append({
             'command': command['name'],
             'status': result['status'],
             'message': result['message']
         })
+
+        # If we hit rate limit, wait longer before continuing
+        if result['status'] == 'error' and '429' in result.get('message', ''):
+            logger.warning(f"Rate limit hit, waiting 5 seconds before continuing", correlation_id=correlation_id)
+            time.sleep(5)
 
     success_count = sum(1 for r in results if r['status'] == 'success')
     error_count = len(results) - success_count

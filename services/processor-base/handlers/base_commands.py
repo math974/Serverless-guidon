@@ -1,5 +1,5 @@
 """Base Discord commands (ping, hello, help)."""
-from datetime import datetime
+from datetime import datetime, timezone
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -13,13 +13,13 @@ def handle_hello():
         'type': 4,
         'data': {
             'embeds': [{
-                'title': 'Welcome to RATP Service',
-                'description': 'Hello! Welcome to the RATP service. I am your assistant to help you with Paris public transport. How can I help you today?',
+                'title': 'Welcome to Picasso Service',
+                'description': 'Hello! Welcome to the Picasso service. I am your assistant to help you create art on the canvas. How can I help you today?',
                 'color': 0x0066CC,
                 'footer': {
-                    'text': 'RATP - Paris Public Transport'
+                    'text': 'Picasso - Art Bot'
                 },
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }]
         }
     }
@@ -38,7 +38,7 @@ def handle_ping():
                 'footer': {
                     'text': 'Status: Online'
                 },
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }]
         }
     }
@@ -50,27 +50,39 @@ def handle_help():
     return {
         'type': 4,
         'data': {
-            'embeds': [{
-                'title': 'Available Commands',
-                'description': 'Here are the commands you can use:',
-                'color': 0x0066CC,
-                'fields': [
-                    {
-                        'name': 'Basic Commands',
-                        'value': '`/hello` - RATP service greeting\n`/ping` - Test bot latency\n`/help` - Show this help message',
-                        'inline': False
+            'embeds': [
+                {
+                    'title': '📚 Available Commands',
+                    'description': 'Here are all the commands you can use:',
+                    'color': 0x0066CC,
+                    'fields': [
+                        {
+                            'name': '🔷 Basic Commands',
+                            'value': '`/hello` - Picasso service greeting\n`/ping` - Test bot latency\n`/help` - Show this help message',
+                            'inline': False
+                        },
+                        {
+                            'name': '🎨 Art Commands',
+                            'value': '`/draw <x> <y> <color>` - Draw a pixel\n`/snapshot` - Take a canvas snapshot',
+                            'inline': False
+                        },
+                        {
+                            'name': '👤 User Commands',
+                            'value': '`/register` - Register your account\n`/stats` - Your statistics\n`/userinfo [user]` - Show user info (optional user)\n`/leaderboard` - Top 10 users',
+                            'inline': False
+                        },
+                        {
+                            'name': '🛡️ Admin Commands',
+                            'value': '`/ban <user> [reason]` - Ban a user\n`/unban <user>` - Unban a user\n`/setpremium <user> <true/false>` - Set premium status',
+                            'inline': False
+                        }
+                    ],
+                    'footer': {
+                        'text': 'Picasso - Art Bot'
                     },
-                    {
-                        'name': 'Art Commands',
-                        'value': '`/draw` - Draw a pixel\n`/snapshot` - Take a snapshot',
-                        'inline': False
-                    }
-                ],
-                'footer': {
-                    'text': 'RATP - Paris Public Transport'
-                },
-                'timestamp': datetime.utcnow().isoformat()
-            }]
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                }
+            ]
         }
     }
 

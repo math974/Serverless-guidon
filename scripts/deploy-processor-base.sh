@@ -17,6 +17,14 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 echo "Preparing service..."
 "${SCRIPT_DIR}/prepare-services.sh"
 
+# Get user-manager URL if available
+USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+
+ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
+if [ ! -z "${USER_MANAGER_URL}" ]; then
+    ENV_VARS="${ENV_VARS},USER_MANAGER_URL=${USER_MANAGER_URL}"
+fi
+
 echo "Deploying processor-base..."
 gcloud functions deploy "${SERVICE_NAME}" \
   --gen2 \
@@ -26,7 +34,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --entry-point=processor_base_handler \
   --trigger-topic=discord-commands-base \
   --project="${PROJECT_ID}" \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production" \
+  --set-env-vars="${ENV_VARS}" \
   --timeout=540s \
   --memory=512MB \
   2>&1 | grep -v "No change" || true

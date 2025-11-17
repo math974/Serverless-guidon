@@ -36,6 +36,9 @@ deploy-auth: prepare-services ## Deploy auth service
 deploy-user-manager: prepare-services ## Deploy user-manager service
 	@PROJECT_ID=$(PROJECT_ID) REGION=$(REGION) $(SCRIPTS_DIR)/deploy-user-manager.sh
 
+deploy-web-frontend: ## Deploy simple Cloud Functions web frontend
+	@PROJECT_ID=$(PROJECT_ID) REGION=$(REGION) $(SCRIPTS_DIR)/deploy-web-frontend.sh
+
 deploy-all: ## Deploy all services
 	@PROJECT_ID=$(PROJECT_ID) REGION=$(REGION) API_ID=$(API_ID) GATEWAY_ID=$(GATEWAY_ID) $(SCRIPTS_DIR)/deploy-all.sh
 

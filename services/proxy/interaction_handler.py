@@ -40,22 +40,35 @@ def process_interaction(
     if not command_name:
         return None
 
-    # Check user permissions and rate limits
+    user_payload = None
+    if interaction_type == 'discord':
+        member = interaction_data.get('member', {})
+        user = member.get('user') or interaction_data.get('user', {})
+        if user:
+            username = user.get('username', 'unknown')
+            discriminator = user.get('discriminator', '0')
+            full_username = f"{username}#{discriminator}" if discriminator != '0' else username
+            user_payload = {
+                'username': full_username,
+                'avatar': user.get('avatar')
+            }
+
+    art_commands = {'draw', 'snapshot'}
+    enforce_limits = command_name in art_commands
+
     user_id = get_user_id_from_interaction(interaction_data)
-    if user_id:
-        # Check if user is allowed (not banned, rate limit OK)
+    if user_id and enforce_limits:
         allowed, rate_limit_info, error_message = check_user_allowed(
             user_id,
             command_name,
-            correlation_id=correlation_id
+            correlation_id=correlation_id,
+            user_payload=user_payload
         )
 
         if not allowed:
             if rate_limit_info:
-                # Rate limit exceeded
                 return get_rate_limit_error_response(rate_limit_info, interaction_type)
             else:
-                # User is banned or other error
                 if interaction_type == 'discord':
                     return {
                         'type': 4,
@@ -70,29 +83,26 @@ def process_interaction(
                         'message': error_message or 'Access denied'
                     }, 403
 
-        # Create/update user if needed (async, don't block)
-        if interaction_type == 'discord':
-            member = interaction_data.get('member', {})
-            user = member.get('user') or interaction_data.get('user', {})
-            username = user.get('username', 'unknown')
-            discriminator = user.get('discriminator', '0')
-            full_username = f"{username}#{discriminator}" if discriminator != '0' else username
+        if interaction_type == 'discord' and user_payload:
+            import threading
+            def create_user_async():
+                try:
+                    create_or_update_user(
+                        user_id,
+                        user_payload['username'],
+                        correlation_id=correlation_id,
+                        avatar=user_payload.get('avatar')
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to create/update user (async)",
+                        error=e,
+                        correlation_id=correlation_id,
+                        user_id=user_id
+                    )
 
-            # Try to create/update user (non-blocking)
-            try:
-                create_or_update_user(
-                    user_id,
-                    full_username,
-                    correlation_id=correlation_id,
-                    avatar=user.get('avatar')
-                )
-            except Exception as e:
-                logger.warning(
-                    "Failed to create/update user (non-blocking)",
-                    error=e,
-                    correlation_id=correlation_id,
-                    user_id=user_id
-                )
+            thread = threading.Thread(target=create_user_async, daemon=True)
+            thread.start()
 
     simple_response = handle_simple_command(command_name, interaction_type)
     if simple_response:

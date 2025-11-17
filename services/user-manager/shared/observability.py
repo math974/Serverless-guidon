@@ -4,7 +4,7 @@ import logging
 import json
 import uuid
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 from opentelemetry import trace
@@ -48,13 +48,12 @@ class StructuredLogger:
     def _build_log_entry(self, message: str, level: str, correlation_id: Optional[str] = None, **extra) -> Dict[str, Any]:
         """Build structured log entry with trace context."""
         entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "severity": level,
             "service": self.service_name,
             "message": message,
         }
 
-        # Auto-add trace context
         trace_context = self._get_trace_context()
         if trace_context:
             entry.update(trace_context)
@@ -70,8 +69,15 @@ class StructuredLogger:
         entry = self._build_log_entry(message, "INFO", **kwargs)
         self.logger.info(json.dumps(entry))
 
-    def warning(self, message: str, **kwargs):
-        """Log WARNING level."""
+    def warning(self, message: str, error: Optional[Exception] = None, **kwargs):
+        """Log WARNING level with optional exception details."""
+        if error:
+            import traceback
+            kwargs["error"] = {
+                "type": type(error).__name__,
+                "message": str(error),
+                "stacktrace": traceback.format_exc()
+            }
         entry = self._build_log_entry(message, "WARNING", **kwargs)
         self.logger.warning(json.dumps(entry))
 
@@ -102,7 +108,7 @@ class JsonFormatter(logging.Formatter):
             return record.msg
 
         log_obj = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
             "severity": record.levelname,
             "message": record.getMessage(),
         }
@@ -135,7 +141,8 @@ class TracingManager:
                 span_processor = BatchSpanProcessor(cloud_trace_exporter)
                 tracer_provider.add_span_processor(span_processor)
             except Exception as e:
-                print(f"Warning: Could not setup Cloud Trace exporter: {e}")
+                import logging
+                logging.warning(f"Could not setup Cloud Trace exporter: {e}")
 
         trace.set_tracer_provider(tracer_provider)
         return trace.get_tracer(self.service_name)
@@ -149,14 +156,16 @@ class TracingManager:
         try:
             FlaskInstrumentor().instrument_app(app)
         except Exception as e:
-            print(f"Warning: Could not instrument Flask: {e}")
+            import logging
+            logging.warning(f"Could not instrument Flask: {e}")
 
     def instrument_requests(self):
         """Auto-instrument requests library."""
         try:
             RequestsInstrumentor().instrument()
         except Exception as e:
-            print(f"Warning: Could not instrument requests: {e}")
+            import logging
+            logging.warning(f"Could not instrument requests: {e}")
 
 
 def init_observability(service_name: str, app=None, environment: str = None):

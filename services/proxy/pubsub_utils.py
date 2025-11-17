@@ -7,10 +7,9 @@ from config import PROJECT_ID, PUBSUB_TOPIC_DISCORD_COMMANDS_ART, PUBSUB_TOPIC_D
 
 publisher = pubsub_v1.PublisherClient()
 
-
 def get_topic_for_command(command_name: str) -> str:
     """Get Pub/Sub topic for a command."""
-    art_commands = ['draw', 'snapshot']
+    art_commands = ['draw', 'snapshot', 'stats', 'colors']
     if command_name in art_commands:
         return PUBSUB_TOPIC_DISCORD_COMMANDS_ART
     return PUBSUB_TOPIC_DISCORD_COMMANDS_BASE

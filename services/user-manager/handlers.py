@@ -1,5 +1,6 @@
 """HTTP request handlers for user management service."""
-from typing import Optional
+from typing import Optional, Dict, Any
+from datetime import datetime
 from flask import Request, jsonify
 from user_manager import UserManager
 from rate_limiter import RateLimiter
@@ -7,6 +8,27 @@ from stats_manager import StatsManager
 from shared.observability import init_observability
 
 logger, _ = init_observability('user-management-service', app=None)
+
+
+def serialize_user_data(user_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert Firestore timestamps to ISO format strings for JSON serialization.
+
+    Args:
+        user_data: User data dict from Firestore
+
+    Returns:
+        User data dict with serializable timestamps
+    """
+    if not user_data:
+        return user_data
+
+    serialized = {}
+    for key, value in user_data.items():
+        if isinstance(value, datetime):
+            serialized[key] = value.isoformat()
+        else:
+            serialized[key] = value
+    return serialized
 
 # --- Initialize managers ---
 user_manager = UserManager()
@@ -18,10 +40,16 @@ def get_correlation_id(request: Request) -> Optional[str]:
     """Extract correlation ID from request."""
     return getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
 
-
 def handle_users(request: Request, path: str, method: str):
     """Handle user management routes."""
     correlation_id = get_correlation_id(request)
+
+    logger.debug(
+        "Handling user request",
+        correlation_id=correlation_id,
+        path=path,
+        method=method
+    )
 
     # --- GET /api/users/{user_id} ---
     if method == 'GET' and path.startswith('/api/users/'):
@@ -34,7 +62,9 @@ def handle_users(request: Request, path: str, method: str):
                 correlation_id=correlation_id,
                 user_id=user_id
             )
-            return jsonify(user), 200
+            # Serialize timestamps for JSON response
+            serialized_user = serialize_user_data(user)
+            return jsonify(serialized_user), 200
         else:
             logger.warning(
                 "User not found",
@@ -65,13 +95,60 @@ def handle_users(request: Request, path: str, method: str):
             )
             return jsonify({'error': 'user_id and username required'}), 400
 
-        user = user_manager.create_or_update_user(
-            user_id,
-            username,
-            correlation_id=correlation_id,
-            **{k: v for k, v in data.items() if k not in ['user_id', 'username']}
-        )
-        return jsonify(user), 200
+        try:
+            logger.info(
+                "Starting user creation/update",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                username=username,
+                additional_fields=list({k: v for k, v in data.items() if k not in ['user_id', 'username']}.keys())
+            )
+
+            user = user_manager.create_or_update_user(
+                user_id,
+                username,
+                correlation_id=correlation_id,
+                **{k: v for k, v in data.items() if k not in ['user_id', 'username']}
+            )
+
+            logger.info(
+                "User created/updated in UserManager",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                has_user=bool(user),
+                user_keys=list(user.keys()) if user else []
+            )
+
+            serialized_user = serialize_user_data(user)
+
+            logger.info(
+                "User serialized",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                serialized_keys=list(serialized_user.keys()) if serialized_user else []
+            )
+
+            is_new = 'created_at' in serialized_user and serialized_user.get('created_at')
+
+            logger.info(
+                "User created/updated successfully",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                username=username,
+                is_new_user=bool(is_new),
+                has_created_at='created_at' in serialized_user
+            )
+
+            return jsonify(serialized_user), 200
+        except Exception as e:
+            logger.error(
+                "Error creating/updating user",
+                error=e,
+                correlation_id=correlation_id,
+                user_id=user_id,
+                username=username
+            )
+            return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
     # --- POST /api/users/{user_id}/increment ---
     elif method == 'POST' and '/increment' in path:
@@ -84,15 +161,54 @@ def handle_users(request: Request, path: str, method: str):
 
     # --- POST /api/users/{user_id}/ban ---
     elif method == 'POST' and '/ban' in path:
-        user_id = path.split('/')[-2]
-        data = request.get_json() or {}
-        reason = data.get('reason')
+        try:
+            # Extract user_id from path: /api/users/{user_id}/ban
+            path_parts = path.split('/')
+            if len(path_parts) < 4 or path_parts[-1] != 'ban':
+                logger.warning(
+                    "Invalid ban path format",
+                    correlation_id=correlation_id,
+                    path=path
+                )
+                return jsonify({'error': 'Invalid path format'}), 400
 
-        success = user_manager.ban_user(user_id, reason, correlation_id=correlation_id)
-        if success:
-            return jsonify({'status': 'banned'}), 200
-        else:
-            return jsonify({'error': 'Failed to ban'}), 500
+            user_id = path_parts[-2]
+            if not user_id:
+                logger.warning(
+                    "Missing user_id in ban path",
+                    correlation_id=correlation_id,
+                    path=path
+                )
+                return jsonify({'error': 'Missing user_id'}), 400
+
+            data = request.get_json() or {}
+            reason = data.get('reason')
+
+            # ban_user uses set(merge=True) so it works even if user doesn't exist yet
+            success = user_manager.ban_user(user_id, reason, correlation_id=correlation_id)
+            if success:
+                logger.info(
+                    "User banned successfully",
+                    correlation_id=correlation_id,
+                    user_id=user_id,
+                    reason=reason
+                )
+                return jsonify({'status': 'banned'}), 200
+            else:
+                logger.error(
+                    "Failed to ban user",
+                    correlation_id=correlation_id,
+                    user_id=user_id
+                )
+                return jsonify({'error': 'Failed to ban user'}), 500
+        except Exception as e:
+            logger.error(
+                "Error in ban handler",
+                error=e,
+                correlation_id=correlation_id,
+                path=path
+            )
+            return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
     # --- POST /api/users/{user_id}/unban ---
     elif method == 'POST' and '/unban' in path:

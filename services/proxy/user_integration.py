@@ -10,6 +10,21 @@ logger, _ = init_observability('discord-proxy', app=None)
 USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
 
+def get_auth_token() -> Optional[str]:
+    """Get Google Cloud identity token for calling user-manager."""
+    if not USER_MANAGER_URL:
+        return None
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+        request_session = google_requests.Request()
+        target_audience = USER_MANAGER_URL
+        return id_token.fetch_id_token(request_session, target_audience)
+    except Exception as e:
+        logger.warning("Failed to get identity token for user-manager", error=e)
+        return None
+
+
 def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
     """Extract user ID from Discord interaction.
 
@@ -33,7 +48,8 @@ def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
 def check_user_allowed(
     user_id: str,
     command: str,
-    correlation_id: Optional[str] = None
+    correlation_id: Optional[str] = None,
+    user_payload: Optional[Dict] = None
 ) -> Tuple[bool, Optional[Dict], Optional[str]]:
     """Check if user is allowed to execute command (not banned, rate limit OK).
 
@@ -55,10 +71,18 @@ def check_user_allowed(
         return True, None, None
 
     try:
+        # Get authentication token
+        auth_token = get_auth_token()
+        headers = {}
+        if correlation_id:
+            headers['X-Correlation-ID'] = correlation_id
+        if auth_token:
+            headers['Authorization'] = f'Bearer {auth_token}'
+
         # First, get user to check if banned and get premium status
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
-            headers={'X-Correlation-ID': correlation_id} if correlation_id else {},
+            headers=headers,
             timeout=2
         )
 
@@ -75,12 +99,24 @@ def check_user_allowed(
                 return False, None, "User is banned"
             is_premium = user_data.get('is_premium', False)
         elif user_response.status_code == 404:
-            # User doesn't exist yet, will be created later
             logger.debug(
-                "User not found, will be created",
+                "User not found, attempting to create",
                 correlation_id=correlation_id,
                 user_id=user_id
             )
+            if user_payload and user_payload.get('username'):
+                create_or_update_user(
+                    user_id,
+                    user_payload['username'],
+                    correlation_id=correlation_id,
+                    avatar=user_payload.get('avatar')
+                )
+            else:
+                logger.debug(
+                    "No user payload provided, skipping creation",
+                    correlation_id=correlation_id,
+                    user_id=user_id
+                )
         else:
             # Error getting user, allow but log
             logger.warning(
@@ -98,7 +134,7 @@ def check_user_allowed(
                 'command': command,
                 'is_premium': is_premium
             },
-            headers={'X-Correlation-ID': correlation_id} if correlation_id else {},
+            headers=headers,
             timeout=2
         )
 
@@ -174,6 +210,13 @@ def create_or_update_user(
         return False
 
     try:
+        auth_token = get_auth_token()
+        headers = {}
+        if correlation_id:
+            headers['X-Correlation-ID'] = correlation_id
+        if auth_token:
+            headers['Authorization'] = f'Bearer {auth_token}'
+
         response = requests.post(
             f"{USER_MANAGER_URL}/api/users",
             json={
@@ -181,7 +224,7 @@ def create_or_update_user(
                 'username': username,
                 **kwargs
             },
-            headers={'X-Correlation-ID': correlation_id} if correlation_id else {},
+            headers=headers,
             timeout=2
         )
 
@@ -231,10 +274,17 @@ def increment_user_usage(
         return False
 
     try:
+        auth_token = get_auth_token()
+        headers = {}
+        if correlation_id:
+            headers['X-Correlation-ID'] = correlation_id
+        if auth_token:
+            headers['Authorization'] = f'Bearer {auth_token}'
+
         response = requests.post(
             f"{USER_MANAGER_URL}/api/users/{user_id}/increment",
             json={'command': command},
-            headers={'X-Correlation-ID': correlation_id} if correlation_id else {},
+            headers=headers,
             timeout=2
         )
 

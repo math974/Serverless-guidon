@@ -4,36 +4,75 @@ OAuth2 Discord Authentication Service using Functions Framework for Cloud Functi
 import os
 import requests
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from google.cloud import firestore
 from functions_framework import http
-from flask import redirect, jsonify, Request
+from flask import jsonify, Request, make_response, Response
 from shared.correlation import with_correlation
 from shared.observability import init_observability, traced_function
+from urllib.parse import urlencode
 
 logger, tracing = init_observability('discord-auth-service', app=None)
 
 # --- Discord OAuth2 Configuration ---
-DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID')
-DISCORD_CLIENT_SECRET = os.environ.get('DISCORD_CLIENT_SECRET')
-DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI')
-WEB_FRONTEND_URL = os.environ.get('WEB_FRONTEND_URL')
+DISCORD_CLIENT_ID = os.environ.get('DISCORD_CLIENT_ID', '').strip()
+DISCORD_CLIENT_SECRET = os.environ.get('DISCORD_CLIENT_SECRET', '').strip()
+DISCORD_REDIRECT_URI = os.environ.get('DISCORD_REDIRECT_URI', '').strip()
+WEB_FRONTEND_URL = os.environ.get('WEB_FRONTEND_URL', '').strip()
 
 # --- Discord OAuth2 Configuration ---
 DISCORD_API_BASE_URL = "https://discord.com/api/v10"
 DISCORD_OAUTH_URL = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 
-# --- Firestore client (singleton) ---
+# --- Firestore / helpers ---
 _db_client = None
+FIRESTORE_DATABASE = os.environ.get("FIRESTORE_DATABASE", "guidon-db")
 
 # --- Firestore client (singleton) ---
 def get_db():
     """Get Firestore client singleton."""
     global _db_client
     if _db_client is None:
-        _db_client = firestore.Client()
+        _db_client = firestore.Client(database=FIRESTORE_DATABASE)
     return _db_client
+
+
+def auto_redirect_response(target_url: str, message: str) -> Response:
+    """Return HTML that forces redirect (meta + JS) while keeping Location header."""
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Redirecting...</title>
+        <meta http-equiv="refresh" content="0;url={target_url}">
+        <script>window.location.replace("{target_url}");</script>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                background: #0f172a;
+                color: #f8fafc;
+            }}
+            a {{ color: #60a5fa; }}
+        </style>
+    </head>
+    <body>
+        <div>
+            <h2>{message}</h2>
+            <p>If you are not redirected automatically, <a href="{target_url}">click here</a>.</p>
+        </div>
+    </body>
+    </html>
+    """
+    response = make_response(html, 302)
+    response.headers["Location"] = target_url
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    return response
 
 
 class SessionManager:
@@ -62,10 +101,10 @@ class SessionManager:
             'avatar': user_data.get('avatar'),
             'discord_access_token': discord_token['access_token'],
             'discord_refresh_token': discord_token.get('refresh_token'),
-            'discord_token_expires': datetime.utcnow() + timedelta(seconds=discord_token['expires_in']),
+            'discord_token_expires': datetime.now(timezone.utc) + timedelta(seconds=discord_token['expires_in']),
             'created_at': firestore.SERVER_TIMESTAMP,
             'last_activity': firestore.SERVER_TIMESTAMP,
-            'expires_at': datetime.utcnow() + timedelta(days=30)
+            'expires_at': datetime.now(timezone.utc) + timedelta(days=30)
         }
 
         db.collection('sessions').document(session_id).set(session_data)
@@ -97,7 +136,7 @@ class SessionManager:
             session_data = doc.to_dict()
 
             # --- Check if expired ---
-            if session_data.get('expires_at') and session_data['expires_at'] < datetime.utcnow():
+            if session_data.get('expires_at') and session_data['expires_at'] < datetime.now(timezone.utc):
                 logger.info(
                     "Session expired",
                     correlation_id=correlation_id,
@@ -182,7 +221,7 @@ class SessionManager:
                 db.collection('sessions').document(session_id).update({
                     'discord_access_token': token_data['access_token'],
                     'discord_refresh_token': token_data.get('refresh_token'),
-                    'discord_token_expires': datetime.utcnow() + timedelta(seconds=token_data['expires_in'])
+                    'discord_token_expires': datetime.now(timezone.utc) + timedelta(seconds=token_data['expires_in'])
                 })
 
                 logger.info(
@@ -342,15 +381,16 @@ def handle_login(request: Request):
         'state': state
     }
 
-    oauth_url = f"{DISCORD_OAUTH_URL}?{'&'.join(f'{k}={v}' for k, v in params.items())}"
+    oauth_url = f"{DISCORD_OAUTH_URL}?{urlencode(params)}"
 
     logger.info(
         "Redirecting to Discord OAuth2",
         correlation_id=correlation_id,
-        state=state[:10] + "..."
+        state=state[:10] + "...",
+        redirect_uri=DISCORD_REDIRECT_URI
     )
 
-    return redirect(oauth_url, code=302)
+    return auto_redirect_response(oauth_url, "Redirecting to Discord OAuth2...")
 
 
 @traced_function("handle_callback")
@@ -439,7 +479,10 @@ def handle_callback(request: Request):
             session_id=session_id[:10] + "..."
         )
 
-        return redirect(redirect_url, code=302)
+        return auto_redirect_response(
+            redirect_url,
+            "Authentication succeeded. Redirecting to the frontend..."
+        )
 
     except Exception as e:
         logger.error(
@@ -602,7 +645,7 @@ def handle_get_user(request: Request):
 
     # --- Check if Discord token needs refresh ---
     if session_data.get('discord_token_expires') and \
-       session_data['discord_token_expires'] < datetime.utcnow():
+       session_data['discord_token_expires'] < datetime.now(timezone.utc):
         logger.info(
             "Discord token expired, refreshing",
             correlation_id=correlation_id,
@@ -646,7 +689,7 @@ def handle_active_sessions(request: Request):
         db = get_db()
 
         # --- Count non-expired sessions ---
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         query = db.collection('sessions').where('expires_at', '>', now)
         count = len(list(query.stream()))
 
