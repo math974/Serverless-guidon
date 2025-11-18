@@ -55,10 +55,18 @@ def process_interaction(
                 'username': full_username,
                 'avatar': user.get('avatar')
             }
+    else:  # web interaction
+        user_id_from_data = interaction_data.get('user_id') or interaction_data.get('user', {}).get('id')
+        if user_id_from_data:
+            user_data = interaction_data.get('user', {})
+            username = user_data.get('username') or interaction_data.get('username', 'web-user')
+            user_payload = {
+                'username': username,
+                'avatar': user_data.get('avatar') or interaction_data.get('avatar')
+            }
 
     user_id = get_user_id_from_interaction(interaction_data)
 
-    # - Check if user is registered (except for commands that don't require it) -
     if user_id and command_name not in NO_REGISTRATION_REQUIRED:
         if not is_user_registered(user_id, correlation_id=correlation_id):
             if interaction_type == 'discord':
@@ -128,16 +136,29 @@ def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
     proxy_url = get_proxy_url(request)
 
     if interaction_type == 'web':
-        return {
-            'interaction': {
-                'type': 2,
-                'data': {
-                    'name': interaction_data.get('command'),
-                    'options': interaction_data.get('options', [])
-                },
-                'token': interaction_data.get('token', 'web-interaction'),
-                'application_id': interaction_data.get('application_id', 'web-client')
+        user_id = interaction_data.get('user_id') or interaction_data.get('user', {}).get('id')
+        user_data = interaction_data.get('user', {})
+
+        interaction_obj = {
+            'type': 2,
+            'data': {
+                'name': interaction_data.get('command'),
+                'options': interaction_data.get('options', [])
             },
+            'token': interaction_data.get('token', 'web-interaction'),
+            'application_id': interaction_data.get('application_id', 'web-client')
+        }
+
+        if user_id:
+            interaction_obj['user'] = {
+                'id': user_id,
+                'username': user_data.get('username') or interaction_data.get('username', 'web-user'),
+                'discriminator': user_data.get('discriminator', '0'),
+                'avatar': user_data.get('avatar') or interaction_data.get('avatar')
+            }
+
+        return {
+            'interaction': interaction_obj,
             'interaction_type': 'web',
             'proxy_url': proxy_url
         }

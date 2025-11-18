@@ -26,10 +26,10 @@ def get_auth_token() -> Optional[str]:
 
 
 def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
-    """Extract user ID from Discord interaction.
+    """Extract user ID from Discord or Web interaction.
 
     Args:
-        interaction: Discord interaction data
+        interaction: Discord or Web interaction data
 
     Returns:
         User ID string or None
@@ -41,6 +41,10 @@ def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
     user = interaction.get('user')
     if user:
         return user.get('id')
+
+    user_id = interaction.get('user_id')
+    if user_id:
+        return user_id
 
     return None
 
