@@ -1,5 +1,6 @@
 functions-framework==3.*
 requests==2.31.0
+flask==3.0.0
 
 # Observability - OpenTelemetry with Google Cloud Trace
 opentelemetry-api==1.21.0
