@@ -10,18 +10,9 @@ labels = {
   app         = "picasso"
 }
 
-functions = {
-  "hello-http" = {
-    entry_point = "hello_http"
-    source_dir  = "../serverless/hello-python"
-    runtime     = "python311"
-  }
-  "ping-http" = {
-    entry_point = "ping_http"
-    source_dir  = "../serverless/ping-python"
-    runtime     = "python311"
-  }
-}
+# Les services dans services/ sont déployés comme Cloud Run, pas comme Cloud Functions
+# Utilisez les scripts de déploiement existants (deploy-proxy.sh, deploy-registrar.sh, etc.)
+# functions = {}
 
 
 

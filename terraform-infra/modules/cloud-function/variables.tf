@@ -25,24 +25,24 @@ variable "runtime" {
 }
 
 variable "source_dir" {
-  description = "Chemin local du répertoire contenant le code source de la fonction"
+  description = "Chemin local du répertoire contenant le code source de la fonction (utilisé pour référence, déploiement via gcloud CLI)"
   type        = string
 }
 
-variable "labels" {
-  description = "Labels à appliquer"
-  type        = map(string)
-  default     = {}
-}
-
 variable "bucket_name" {
-  description = "Nom du bucket GCS existant pour stocker l'archive source (obligatoire)"
+  description = "Nom du bucket GCS pour stocker l'archive source minimale (obligatoire)"
   type        = string
 
   validation {
     condition     = length(var.bucket_name) > 0
     error_message = "bucket_name doit être renseigné et non vide."
   }
+}
+
+variable "labels" {
+  description = "Labels à appliquer"
+  type        = map(string)
+  default     = {}
 }
 
 variable "secret_env" {

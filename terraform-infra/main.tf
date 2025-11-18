@@ -25,6 +25,8 @@ resource "google_storage_bucket" "cf_src" {
   labels                      = var.labels
 }
 
+# Note: Functions are deployed via gcloud CLI in GitHub Actions
+# Terraform creates the function infrastructure with minimal source, then gcloud CLI updates it
 module "functions" {
   source   = "./modules/cloud-function"
   for_each = var.functions
@@ -42,8 +44,7 @@ module "functions" {
   runtime       = try(each.value.runtime, "python311")
   labels        = merge(var.labels, coalesce(each.value.labels, {}))
   secret_env    = coalesce(each.value.secret_env, [])
-
-  bucket_name = google_storage_bucket.cf_src.name
+  bucket_name   = google_storage_bucket.cf_src.name
 }
 
 module "api_gateway" {

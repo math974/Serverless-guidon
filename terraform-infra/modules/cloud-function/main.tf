@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/google-beta"
       version = ">= 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0"
+    }
     archive = {
       source  = "hashicorp/archive"
       version = ">= 2.4.0"
@@ -29,16 +33,44 @@ resource "google_project_service" "apis" {
   service = each.key
 }
 
-data "archive_file" "source_zip" {
-  type        = "zip"
-  source_dir  = var.source_dir
-  output_path = "${path.module}/${var.function_name}.zip"
+# Note: Source code is deployed via gcloud CLI in GitHub Actions pipeline
+# Terraform creates the function with a minimal source, then gcloud CLI updates it
+# We use a local null_resource to create a minimal source file for initial deployment
+locals {
+  # Create a minimal source directory structure for initial deployment
+  minimal_source_dir = "${path.module}/.minimal-${var.function_name}"
 }
 
-resource "google_storage_bucket_object" "archive" {
-  name   = "${var.function_name}/${data.archive_file.source_zip.output_sha}.zip"
+resource "null_resource" "minimal_source" {
+  triggers = {
+    function_name = var.function_name
+    entry_point   = var.entry_point
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p "${local.minimal_source_dir}"
+      cat > "${local.minimal_source_dir}/main.py" <<EOF
+def ${var.entry_point}(request):
+    """Minimal entry point - will be replaced by gcloud CLI deployment."""
+    return {"message": "Function deployed via Terraform, update via gcloud CLI"}, 200
+EOF
+      echo "functions-framework==3.*" > "${local.minimal_source_dir}/requirements.txt"
+    EOT
+  }
+}
+
+data "archive_file" "minimal_source_zip" {
+  depends_on  = [null_resource.minimal_source]
+  type        = "zip"
+  source_dir  = local.minimal_source_dir
+  output_path = "${path.module}/.minimal-${var.function_name}.zip"
+}
+
+resource "google_storage_bucket_object" "minimal_archive" {
+  name   = "${var.function_name}/minimal.zip"
   bucket = var.bucket_name
-  source = data.archive_file.source_zip.output_path
+  source = data.archive_file.minimal_source_zip.output_path
 }
 
 resource "google_cloudfunctions2_function" "function" {
@@ -55,7 +87,7 @@ resource "google_cloudfunctions2_function" "function" {
     source {
       storage_source {
         bucket = var.bucket_name
-        object = google_storage_bucket_object.archive.name
+        object = google_storage_bucket_object.minimal_archive.name
       }
     }
   }
@@ -75,7 +107,11 @@ resource "google_cloudfunctions2_function" "function" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [google_project_service.apis, google_storage_bucket_object.minimal_archive]
+  
+  lifecycle {
+    ignore_changes = [build_config[0].source]
+  }
 }
 
 resource "google_cloudfunctions2_function_iam_member" "invoker_public" {
