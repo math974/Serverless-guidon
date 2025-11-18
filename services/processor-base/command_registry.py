@@ -1,6 +1,14 @@
 """Registry for Discord command handlers."""
 import inspect
 import traceback
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from shared.observability import init_observability  # noqa: E402
+from shared.embed_utils import create_error_embed  # noqa: E402
+
+# Initialize logger for this module
+logger, _ = init_observability('discord-processor-base-registry', app=None)
 
 
 class CommandHandler:
@@ -39,31 +47,28 @@ class CommandHandler:
             except Exception as e:
                 # Log error but don't crash - return error message to user
                 error_msg = str(e)
-                print(f"ERROR in handler '{command_name}': {error_msg}")
-                print(traceback.format_exc())
+                correlation_id = interaction_data.get('correlation_id') if interaction_data else None
+                import traceback
+                error_traceback = traceback.format_exc()
+                logger.error(
+                    "Error in command handler",
+                    error=e,
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    traceback=error_traceback,
+                    command_name=command_name,
+                    correlation_id=correlation_id
+                )
 
-                return {
-                    'type': 4,
-                    'data': {
-                        'embeds': [{
-                            'title': 'Command Error',
-                            'description': f'An error occurred while processing `/{command_name}`. Please try again later.',
-                            'color': 0xFF0000,
-                            'footer': {
-                                'text': 'Error logged - service continues running'
-                            }
-                        }]
-                    }
-                }
+                return create_error_embed(
+                    'Command Error',
+                    f'An error occurred while processing `/{command_name}`. Please try again later.',
+                    ephemeral=True
+                )
 
-        return {
-            'type': 4,
-            'data': {
-                'embeds': [{
-                    'title': 'Command Not Found',
-                    'description': f'Command `/{command_name}` is not available in this service.',
-                    'color': 0xFF0000
-                }]
-            }
-        }
+        return create_error_embed(
+            'Command Not Found',
+            f'Command `/{command_name}` is not available in this service.',
+            ephemeral=True
+        )
 
