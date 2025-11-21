@@ -32,12 +32,16 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --region="${REGION}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=processor_base_handler \
-  --trigger-topic=discord-commands-base \
+  --trigger-topic=commands-base \
+  --allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --timeout=540s \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 
-echo "Deployed (triggered by Pub/Sub topic: discord-commands-base)"
+echo "Deployed (triggered by Pub/Sub topic: commands-base)"
+
+# Note: Service is public (--allow-unauthenticated) for now
+# TODO: Switch to private and grant Eventarc permissions
 

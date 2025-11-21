@@ -1,4 +1,5 @@
 """Interaction processing logic."""
+import os
 from command_handler import handle_simple_command
 from response_utils import get_proxy_url
 from user_integration import (
@@ -157,15 +158,22 @@ def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
                 'avatar': user_data.get('avatar') or interaction_data.get('avatar')
             }
 
+        webhook_url = interaction_data.get('webhook_url')
+        if not webhook_url:
+            logger.warning(
+                "Web interaction missing webhook_url - frontend must provide webhook URL for responses"
+            )
+            return None
+
         return {
             'interaction': interaction_obj,
             'interaction_type': 'web',
-            'proxy_url': proxy_url
+            'webhook_url': webhook_url
         }
     else:
         result = {
             'interaction': interaction_data,
-            'proxy_url': proxy_url
+            'discord_bot_token': os.environ.get('DISCORD_BOT_TOKEN')
         }
         if signature and timestamp:
             result['headers'] = {

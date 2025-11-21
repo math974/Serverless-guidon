@@ -60,6 +60,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=auth_handler \
   --trigger-http \
+  --allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db" \
   --set-secrets="DISCORD_CLIENT_ID=DISCORD_CLIENT_ID:latest,DISCORD_CLIENT_SECRET=DISCORD_CLIENT_SECRET:latest,DISCORD_REDIRECT_URI=DISCORD_REDIRECT_URI:latest,WEB_FRONTEND_URL=WEB_FRONTEND_URL:latest" \

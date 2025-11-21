@@ -1,6 +1,7 @@
 """Shared Pub/Sub message processing utilities."""
 import json
 import base64
+import os
 from typing import Optional, Dict, Tuple
 
 def decode_pubsub_message(request, logger=None) -> Tuple[Optional[Dict], Optional[str]]:
@@ -49,7 +50,7 @@ def handle_processor_response(
     response: dict,
     logger=None
 ) -> bool:
-    """Handle sending response back to proxy (Discord or web).
+    """Handle sending response directly to Discord or web webhooks.
 
     Args:
         interaction_data: Decoded Pub/Sub message data
@@ -59,21 +60,38 @@ def handle_processor_response(
     Returns:
         True if response was sent successfully, False otherwise
     """
-    from shared.processor_utils import send_response_to_proxy, send_web_response
+    from shared.processor_utils import send_discord_webhook_direct, send_web_webhook
 
     interaction = interaction_data.get('interaction', {})
-    proxy_url = interaction_data.get('proxy_url')
     interaction_type = interaction_data.get('interaction_type', 'discord')
     correlation_id = interaction_data.get('correlation_id')
 
+    # For web interactions, use webhook_url directly
+    if interaction_type == 'web':
+        webhook_url = interaction_data.get('webhook_url')
+        if webhook_url:
+            return send_web_webhook(webhook_url, response, correlation_id, logger)
+        else:
+            if logger:
+                logger.warning("Web interaction but no webhook_url provided", correlation_id=correlation_id)
+            return False
+
+    # For Discord interactions, send directly to Discord webhook
     interaction_token = interaction.get('token')
     application_id = interaction.get('application_id')
+    discord_bot_token = interaction_data.get('discord_bot_token') or os.environ.get('DISCORD_BOT_TOKEN')
 
-    if interaction_type == 'web' and proxy_url:
-        return send_web_response(proxy_url, interaction_token, response, correlation_id, logger)
-    elif interaction_token and application_id and proxy_url:
-        return send_response_to_proxy(
-            proxy_url, interaction_token, application_id, response, correlation_id, logger
+    if interaction_token and application_id and discord_bot_token:
+        return send_discord_webhook_direct(
+            interaction_token, application_id, response, discord_bot_token, correlation_id, logger
         )
-
-    return False
+    else:
+        if logger:
+            logger.warning(
+                "Missing required Discord webhook parameters",
+                correlation_id=correlation_id,
+                has_token=bool(interaction_token),
+                has_app_id=bool(application_id),
+                has_bot_token=bool(discord_bot_token)
+            )
+        return False

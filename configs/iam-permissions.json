@@ -1,0 +1,47 @@
+{
+  "service_accounts": {
+    "cloud_functions": {
+      "description": "Default Cloud Functions service account (automatically created)",
+      "permissions": [
+        "roles/secretmanager.secretAccessor",
+        "roles/datastore.user",
+        "roles/storage.objectAdmin",
+        "roles/pubsub.publisher",
+        "roles/run.invoker"
+      ]
+    }
+  },
+  "required_roles": [
+    {
+      "role": "roles/secretmanager.secretAccessor",
+      "description": "Access to read secrets from Secret Manager",
+      "used_by": ["all services"]
+    },
+    {
+      "role": "roles/datastore.user",
+      "description": "Access to Firestore database",
+      "used_by": ["user-manager", "auth-service", "canvas-service"]
+    },
+    {
+      "role": "roles/storage.objectAdmin",
+      "description": "Access to GCS bucket for snapshots",
+      "used_by": ["canvas-service"]
+    },
+    {
+      "role": "roles/pubsub.publisher",
+      "description": "Publish messages to Pub/Sub topics",
+      "used_by": ["proxy"]
+    },
+    {
+      "role": "roles/pubsub.subscriber",
+      "description": "Subscribe to Pub/Sub topics",
+      "used_by": ["all processors"]
+    },
+    {
+      "role": "roles/run.invoker",
+      "description": "Invoke Cloud Run services (for service-to-service calls)",
+      "used_by": ["processors calling canvas-service and user-manager"]
+    }
+  ]
+}
+

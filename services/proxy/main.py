@@ -12,19 +12,15 @@ from flask import Request, jsonify, make_response, Response
 from shared.observability import init_observability, traced_function
 from config import (
     PROJECT_ID,
-    PUBSUB_TOPIC_DISCORD_INTERACTIONS
+    PUBSUB_TOPIC_INTERACTIONS
 )
-from discord_utils import verify_discord_signature, send_discord_response
+from discord_utils import verify_discord_signature
 from interaction_handler import process_interaction, prepare_pubsub_data
 from pubsub_utils import get_topic_for_command, publish_to_pubsub
 from response_utils import get_error_response
 from shared.correlation import with_correlation
 
 logger, tracing = init_observability('discord-proxy', app=None)
-
-# In-memory storage for web responses (token -> response)
-# In production, consider using Firestore or Redis for persistence
-_web_responses = {}
 
 
 def add_cors_headers(response):
@@ -57,23 +53,6 @@ def proxy_handler(request: Request):
         response = health_handler(request)
         return add_cors_headers(response)
 
-    # --- Discord response endpoint ---
-    if path == "/discord/response" and method == "POST":
-        return receive_processor_response(request)
-
-    # --- Web response endpoint ---
-    if path == "/web/response" and method == "POST":
-        result = receive_web_response(request)
-        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
-        return add_cors_headers(response)
-
-    # --- Get web response by token ---
-    if path.startswith("/web/response/") and method == "GET":
-        token = path.split("/web/response/")[-1]
-        result = get_web_response(token)
-        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
-        return add_cors_headers(response)
-
     # --- Web interactions endpoint ---
     if path == "/web/interactions" and method == "POST":
         result = web_interactions(request)
@@ -84,7 +63,6 @@ def proxy_handler(request: Request):
     if path == "/discord/interactions" and method == "POST":
         return discord_interactions(request)
 
-    # 404 for unknown paths
     logger.warning("Unknown path", path=path, method=method)
     response = jsonify({'error': 'Not found'}), 404
     if isinstance(response, tuple):
@@ -97,136 +75,23 @@ def health_handler(request: Request):
     logger.info("Health check called", correlation_id=correlation_id)
 
     from config import (
-        PUBSUB_TOPIC_DISCORD_INTERACTIONS,
-        PUBSUB_TOPIC_DISCORD_COMMANDS_BASE,
-        PUBSUB_TOPIC_DISCORD_COMMANDS_ART
+        PUBSUB_TOPIC_INTERACTIONS,
+        PUBSUB_TOPIC_COMMANDS_BASE
     )
     return jsonify({
         'status': 'healthy',
         'service': 'discord-proxy',
         'project_id': PROJECT_ID,
         'topics': {
-            'interactions': PUBSUB_TOPIC_DISCORD_INTERACTIONS,
-            'commands_base': PUBSUB_TOPIC_DISCORD_COMMANDS_BASE,
-            'commands_art': PUBSUB_TOPIC_DISCORD_COMMANDS_ART
+            'interactions': PUBSUB_TOPIC_INTERACTIONS,
+            'commands_base': PUBSUB_TOPIC_COMMANDS_BASE
         }
     }), 200
 
 
-@traced_function("send_discord_response")
-def receive_processor_response(request: Request):
-    """Receive response from processor and send it to Discord.
-
-    This endpoint is called by processors after they process a command.
-    The processor sends the response here, and this service forwards it to Discord.
-    """
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
-
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            logger.warning("Missing data in response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing data'}), 400
-
-        interaction_token = data.get('interaction_token')
-        application_id = data.get('application_id')
-        response = data.get('response')
-
-        if not interaction_token or not application_id or not response:
-            logger.warning(
-                "Missing required fields",
-                correlation_id=correlation_id,
-                has_token=bool(interaction_token),
-                has_app_id=bool(application_id),
-                has_response=bool(response)
-            )
-            return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-
-        logger.info(
-            "Sending response to Discord",
-            correlation_id=correlation_id,
-            interaction_token=interaction_token[:10] + "..." if interaction_token else None
-        )
-
-        success = send_discord_response(interaction_token, application_id, response)
-        if success:
-            logger.info("Response sent successfully to Discord", correlation_id=correlation_id)
-            return jsonify({'status': 'sent'}), 200
-        else:
-            logger.error("Failed to send to Discord", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Failed to send to Discord'}), 500
-
-    except Exception as e:
-        logger.error("Error in receive_processor_response", error=e, correlation_id=correlation_id)
-        return jsonify({'status': 'error', 'message': 'Internal error'}), 500
-
-
-def receive_web_response(request: Request):
-    """Receive response from processor for web interactions and store it."""
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
-
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            logger.warning("Missing data in web response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing data'}), 400
-
-        token = data.get('token')
-        response = data.get('response')
-
-        if not token or not response:
-            logger.warning("Missing required fields in web response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-
-        logger.info("Processing web response", correlation_id=correlation_id, token=token[:10] + "..." if token else None)
-
-        if 'data' in response:
-            web_response = {
-                'status': 'success',
-                'data': response['data']
-            }
-        else:
-            web_response = {
-                'status': 'success',
-                'data': response
-            }
-
-        # Store response for retrieval by token
-        _web_responses[token] = web_response
-        logger.info("Stored web response", correlation_id=correlation_id, token=token[:10] + "...")
-
-        return jsonify(web_response), 200
-
-    except Exception as e:
-        logger.error("Error in receive_web_response", error=e, correlation_id=correlation_id)
-        return jsonify({'status': 'error', 'message': 'Internal error'}), 500
-
-
-def get_web_response(token: str):
-    """Get stored web response by token."""
-    if not token:
-        response = jsonify({'status': 'error', 'message': 'Missing token'})
-        return add_cors_headers(response), 400
-
-    logger.info("Getting web response", token=token[:10] + "...")
-
-    if token in _web_responses:
-        response = _web_responses[token]
-        # Delete after retrieval to save memory
-        del _web_responses[token]
-        result = jsonify(response)
-        return add_cors_headers(result), 200
-    else:
-        result = jsonify({'status': 'processing', 'message': 'Response not ready yet'})
-        return add_cors_headers(result), 202
-
-
+@traced_function("web_interactions")
 def web_interactions(request: Request):
-    """Handle web interactions (non-Discord).
-
-    This endpoint handles interactions from web clients.
-    It supports the same commands as Discord but returns JSON responses.
-    """
+    """Handle web interactions."""
     correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
 
     try:
@@ -252,9 +117,6 @@ def web_interactions(request: Request):
         pubsub_data['correlation_id'] = correlation_id  # Propagate correlation ID
         topic = get_topic_for_command(command_name)
 
-        # Get token from interaction data for polling
-        token = data.get('token') or pubsub_data.get('interaction', {}).get('token')
-
         try:
             message_id = publish_to_pubsub(topic, pubsub_data, logger=logger, correlation_id=correlation_id)
             logger.info(
@@ -267,8 +129,7 @@ def web_interactions(request: Request):
             return jsonify({
                 'status': 'processing',
                 'message': 'Command is being processed',
-                'command': command_name,
-                'token': token
+                'command': command_name
             }), 202
         except Exception as e:
             logger.error("Failed to publish web interaction to Pub/Sub", error=e, correlation_id=correlation_id, topic=topic)
@@ -334,7 +195,7 @@ def discord_interactions(request: Request):
                 topic=topic
             )
         else:
-            topic = PUBSUB_TOPIC_DISCORD_INTERACTIONS
+            topic = PUBSUB_TOPIC_INTERACTIONS
 
         pubsub_data = prepare_pubsub_data(interaction, 'discord', signature, timestamp, request)
         pubsub_data['correlation_id'] = correlation_id  # Propagate correlation ID
