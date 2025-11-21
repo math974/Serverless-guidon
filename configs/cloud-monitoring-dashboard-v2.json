@@ -1,0 +1,462 @@
+{
+  "displayName": "Discord Bot - Observability Dashboard V2",
+  "etag": "8316db0b238f13c7769ada96bbfa7c7c",
+  "mosaicLayout": {
+    "columns": 48,
+    "tiles": [
+      {
+        "height": 16,
+        "width": 24,
+        "widget": {
+          "title": "📈 Requêtes par service (req/min)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ],
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Requêtes/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 16,
+        "width": 24,
+        "xPos": 24,
+        "widget": {
+          "title": "⏱️ Latence P95 par service (ms)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ],
+                      "perSeriesAligner": "ALIGN_DELTA"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_latencies\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Latence P95 (ms)",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 16,
+        "width": 24,
+        "yPos": 16,
+        "widget": {
+          "title": "🔴 Taux d'erreur par service (%)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilterRatio": {
+                    "denominator": {
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": [
+                          "resource.labels.service_name"
+                        ],
+                        "perSeriesAligner": "ALIGN_RATE"
+                      },
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\""
+                    },
+                    "numerator": {
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": [
+                          "resource.labels.service_name"
+                        ],
+                        "perSeriesAligner": "ALIGN_RATE"
+                      },
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\""
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Taux d'erreur",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 26,
+        "width": 24,
+        "xPos": 24,
+        "yPos": 16,
+        "widget": {
+          "title": "📝 Logs ERROR récents",
+          "logsPanel": {
+            "filter": "jsonPayload.severity=\"ERROR\"\nOR severity=\"ERROR\"",
+            "resourceNames": [
+              "projects/serverless-ejguidon-dev/locations/global/logScopes/_Default"
+            ]
+          }
+        }
+      },
+      {
+        "height": 16,
+        "width": 48,
+        "yPos": 42,
+        "widget": {
+          "title": "🔍 Accès rapide - Cloud Trace & Logs",
+          "text": {
+            "content": "## 🔗 Liens rapides vers les outils d'observabilité\n\n### Cloud Trace\n- [📊 Toutes les traces](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev)\n- [🐌 Traces lentes (>1s)](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev&minLatency=1000ms)\n- [❌ Traces avec erreurs](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev&f=traceFilter:HAS%3A%22error%22)\n\n### Logs Explorer\n- [📋 Tous les logs structurés](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22)\n- [🔴 Logs ERROR uniquement](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20severity%3D%22ERROR%22)\n\n### Services Cloud Run\n- [proxy](https://console.cloud.google.com/run/detail/europe-west1/proxy/metrics?project=serverless-ejguidon-dev)\n- [processor-base](https://console.cloud.google.com/run/detail/europe-west1/processor-base/metrics?project=serverless-ejguidon-dev)\n- [processor-art](https://console.cloud.google.com/run/detail/europe-west1/processor-art/metrics?project=serverless-ejguidon-dev)\n- [user-manager](https://console.cloud.google.com/run/detail/europe-west1/user-manager/metrics?project=serverless-ejguidon-dev)\n\n---\n\n**💡 Tip**: Utilisez `correlation_id` pour suivre une requête à travers tous les services",
+            "format": "MARKDOWN"
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "yPos": 58,
+        "widget": {
+          "title": "💻 CPU Utilization - Tous services",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_MEAN",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ],
+                      "perSeriesAligner": "ALIGN_DELTA"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "CPU %",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 12,
+        "yPos": 58,
+        "widget": {
+          "title": "💾 Memory Utilization - Tous services",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_MEAN",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ],
+                      "perSeriesAligner": "ALIGN_DELTA"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Memory %",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 24,
+        "yPos": 58,
+        "widget": {
+          "title": "📦 Container Instances - Tous services",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ],
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/instance_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Instances",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 36,
+        "yPos": 58,
+        "widget": {
+          "title": "📊 Requêtes/min - proxy",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "yPos": 70,
+        "widget": {
+          "title": "📊 Requêtes/min - processor-base",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"processor-base\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 12,
+        "yPos": 70,
+        "widget": {
+          "title": "📊 Requêtes/min - processor-art",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"processor-art\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 24,
+        "yPos": 70,
+        "widget": {
+          "title": "📊 Requêtes/min - user-manager",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"user-manager\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 12,
+        "width": 12,
+        "xPos": 36,
+        "yPos": 70,
+        "widget": {
+          "title": "📊 Requêtes/min - web-frontend",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"web-frontend\" AND metric.type=\"run.googleapis.com/request_count\""
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "height": 16,
+        "width": 24,
+        "yPos": 82,
+        "widget": {
+          "title": "🔎 Logs par correlation_id",
+          "logsPanel": {
+            "filter": "resource.type=\"cloud_run_revision\"\njsonPayload.correlation_id!=\"\""
+          }
+        }
+      },
+      {
+        "height": 16,
+        "width": 24,
+        "xPos": 24,
+        "yPos": 82,
+        "widget": {
+          "title": "⚠️ Logs WARNING",
+          "logsPanel": {
+            "filter": "jsonPayload.severity=\"WARNING\"\nOR severity=\"WARNING\"",
+            "resourceNames": [
+              "projects/serverless-ejguidon-dev/locations/global/logScopes/_Default"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
+
