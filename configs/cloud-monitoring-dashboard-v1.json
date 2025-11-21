@@ -1,0 +1,271 @@
+{
+  "displayName": "Discord Bot - Observability Dashboard V1",
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
+      {
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "📈 Requêtes par service (req/min)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": ["resource.service_name"]
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "targetAxis": "Y1"
+              }
+            ],
+            "yAxis": {
+              "label": "Requêtes/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "⏱️ Latence P95 par service (ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["resource.service_name"]
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "targetAxis": "Y1"
+              }
+            ],
+            "yAxis": {
+              "label": "Latence P95 (ms)",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 4,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "🔴 Taux d'erreur par service (%)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilterRatio": {
+                    "numerator": {
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.response_code_class=\"5xx\"",
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "perSeriesAligner": "ALIGN_RATE",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": ["resource.service_name"]
+                      }
+                    },
+                    "denominator": {
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\"",
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "perSeriesAligner": "ALIGN_RATE",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": ["resource.service_name"]
+                      }
+                    }
+                  }
+                },
+                "plotType": "LINE",
+                "targetAxis": "Y1"
+              }
+            ],
+            "yAxis": {
+              "label": "Taux d'erreur",
+              "scale": "LINEAR"
+            },
+            "thresholds": [
+              {
+                "value": 0.05,
+                "color": "RED",
+                "direction": "ABOVE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 4,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "📝 Logs ERROR récents",
+          "logsPanel": {
+            "resourceNames": [],
+            "filter": "resource.type=\"cloud_run_revision\"\nOR jsonPayload.severity=\"ERROR\"\nOR severity=\"ERROR\""
+          }
+        }
+      },
+      {
+        "yPos": 8,
+        "width": 12,
+        "height": 4,
+        "widget": {
+          "title": "🔍 Accès rapide - Cloud Trace & Logs",
+          "text": {
+            "content": "## 🔗 Liens rapides vers les outils d'observabilité\n\n### Cloud Trace\n- [📊 Toutes les traces](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev)\n- [🐌 Traces lentes (>1s)](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev&minLatency=1000ms)\n- [❌ Traces avec erreurs](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev&f=traceFilter:HAS%3A%22error%22)\n\n### Logs Explorer\n- [📋 Tous les logs structurés](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22)\n- [🔴 Logs ERROR uniquement](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20severity%3D%22ERROR%22)\n\n### Services Cloud Run\n- [proxy](https://console.cloud.google.com/run/detail/europe-west1/proxy/metrics?project=serverless-ejguidon-dev)\n- [processor-base](https://console.cloud.google.com/run/detail/europe-west1/processor-base/metrics?project=serverless-ejguidon-dev)\n- [processor-art](https://console.cloud.google.com/run/detail/europe-west1/processor-art/metrics?project=serverless-ejguidon-dev)\n- [user-manager](https://console.cloud.google.com/run/detail/europe-west1/user-manager/metrics?project=serverless-ejguidon-dev)\n\n---\n\n**💡 Tip**: Utilisez `correlation_id` pour suivre une requête à travers tous les services",
+            "format": "MARKDOWN"
+          }
+        }
+      },
+      {
+        "yPos": 12,
+        "width": 4,
+        "height": 3,
+        "widget": {
+          "title": "💻 CPU Utilization - proxy",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "crossSeriesReducer": "REDUCE_MEAN"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ],
+            "yAxis": {
+              "label": "CPU %",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 4,
+        "yPos": 12,
+        "width": 4,
+        "height": 3,
+        "widget": {
+          "title": "💾 Memory Utilization - proxy",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "crossSeriesReducer": "REDUCE_MEAN"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ],
+            "yAxis": {
+              "label": "Memory %",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 8,
+        "yPos": 12,
+        "width": 4,
+        "height": 3,
+        "widget": {
+          "title": "📦 Container Instances - Tous services",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/instance_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": ["resource.service_name"]
+                    }
+                  }
+                },
+                "plotType": "STACKED_AREA"
+              }
+            ],
+            "yAxis": {
+              "label": "Instances",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "🔎 Logs par correlation_id",
+          "logsPanel": {
+            "resourceNames": [],
+            "filter": "resource.type=\"cloud_run_revision\"\njsonPayload.correlation_id!=\"\""
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "⚠️ Logs WARNING",
+          "logsPanel": {
+            "resourceNames": [],
+            "filter": "resource.type=\"cloud_run_revision\"\nOR jsonPayload.severity=\"WARNING\"\nOR severity=\"WARNING\""
+          }
+        }
+      },
+      {
+        "yPos": 19,
+        "width": 12,
+        "height": 3,
+        "widget": {
+          "title": "ℹ️ Dashboard Information",
+          "text": {
+            "content": "## Discord Bot - Observability Dashboard V1\n\n**Version**: 1.0.0  \n**Services monitorés**: proxy, processor-base, processor-art, user-manager, web-frontend\n\n### 📊 Métriques disponibles\n- ✅ Requêtes par minute (Cloud Run native)\n- ✅ Latence P95 (Cloud Run native)\n- ✅ Taux d'erreur (ratio 5xx/total)\n- ✅ CPU & Memory utilization\n- ✅ Logs structurés JSON avec trace_id et correlation_id\n- ✅ Traces distribuées OpenTelemetry → Cloud Trace\n\n### 🚀 Évolutions futures (V2)\n- Métriques custom par commande Discord\n- Attributs de span enrichis (command_name, user_id)\n- SLO/SLI monitoring\n- Analyse de performance détaillée\n\n### 📖 Documentation\n- [OpenTelemetry](https://opentelemetry.io/docs/)\n- [Cloud Monitoring](https://cloud.google.com/monitoring/docs)\n- [Cloud Trace](https://cloud.google.com/trace/docs)\n\n---\n\n*Créé le: 2025-11-21 | Branche: feat/dashboard-v1*",
+            "format": "MARKDOWN"
+          }
+        }
+      }
+    ]
+  }
+}
+
