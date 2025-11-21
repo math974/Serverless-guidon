@@ -2,42 +2,42 @@
 
 set -euo pipefail
 
-# Deploy the processor-base service to Cloud Run
+# Deploy the processor-base service to Cloud Functions
 # Usage:
 #   PROJECT_ID=your-project REGION=europe-west1 ./deploy-processor-base.sh
 
 : "${PROJECT_ID:=serverless-ejguidon-dev}"
-: "${SERVICE_NAME:=discord-processor-base}"
+: "${SERVICE_NAME:=processor-base}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/processor-base}"
-
-echo "Project:        ${PROJECT_ID}"
-echo "Service Name:   ${SERVICE_NAME}"
-echo "Region:         ${REGION}"
-echo "Source Dir:     ${SOURCE_DIR}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "\n[0/2] Preparing service (copying shared modules)..."
+echo "Preparing service..."
 "${SCRIPT_DIR}/prepare-services.sh"
 
-echo "\n[1/2] Deploying processor-base service to Cloud Run..."
-# OpenTelemetry: Configure GCP_PROJECT_ID for Cloud Trace and ENVIRONMENT for observability
-gcloud run deploy "${SERVICE_NAME}" \
+# Get user-manager URL if available
+USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+
+ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
+if [ ! -z "${USER_MANAGER_URL}" ]; then
+    ENV_VARS="${ENV_VARS},USER_MANAGER_URL=${USER_MANAGER_URL}"
+fi
+
+echo "Deploying processor-base..."
+gcloud functions deploy "${SERVICE_NAME}" \
+  --gen2 \
+  --runtime=python311 \
+  --region="${REGION}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
-  --region="${REGION}" \
+  --entry-point=processor_base_handler \
+  --trigger-topic=discord-commands-base \
   --project="${PROJECT_ID}" \
-  --allow-unauthenticated \
-  --platform=managed \
-  --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"  # OpenTelemetry: GCP_PROJECT_ID for Cloud Trace, ENVIRONMENT for observability config
+  --set-env-vars="${ENV_VARS}" \
+  --timeout=540s \
+  --memory=512MB \
+  2>&1 | grep -v "No change" || true
 
-SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" \
-  --region="${REGION}" \
-  --project="${PROJECT_ID}" \
-  --format="value(status.url)")
-
-echo "\n[2/2] Deployment complete!"
-echo "\nDone. Processor-base service URL: ${SERVICE_URL}"
-echo "Create a Pub/Sub push subscription pointing to: ${SERVICE_URL}/"
+echo "Deployed (triggered by Pub/Sub topic: discord-commands-base)"
 

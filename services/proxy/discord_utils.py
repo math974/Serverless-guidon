@@ -2,14 +2,21 @@
 import requests
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from shared.observability import init_observability  # noqa: E402
 
-from config import DISCORD_PUBLIC_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL
+from config import DISCORD_PUBLIC_KEY, DISCORD_BOT_TOKEN, DISCORD_API_BASE_URL  # noqa: E402
+
+# Initialize logger for this module
+logger, _ = init_observability('discord-proxy-utils', app=None)
 
 
 def verify_discord_signature(signature: str, timestamp: str, body: bytes) -> bool:
     """Verify Discord request signature."""
     if not DISCORD_PUBLIC_KEY:
-        print("WARNING: DISCORD_PUBLIC_KEY not configured")
+        logger.warning("DISCORD_PUBLIC_KEY not configured")
         return False
 
     try:
@@ -18,7 +25,7 @@ def verify_discord_signature(signature: str, timestamp: str, body: bytes) -> boo
         verify_key.verify(message, bytes.fromhex(signature))
         return True
     except (BadSignatureError, ValueError) as e:
-        print(f"Signature verification failed: {e}")
+        logger.warning("Signature verification failed", error=e)
         return False
 
 
@@ -52,6 +59,6 @@ def send_discord_response(interaction_token: str, application_id: str, response:
         result = requests.post(url, headers=headers, json=followup_payload, timeout=10)
         return result.status_code in [200, 204]
     except Exception as e:
-        print(f"Error sending response to Discord: {e}")
+        logger.error("Error sending response to Discord", error=e, application_id=application_id)
         return False
 

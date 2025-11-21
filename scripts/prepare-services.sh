@@ -2,51 +2,30 @@
 
 set -euo pipefail
 
-# Copy shared modules to each service directory before deployment
-# This allows Cloud Run to find the shared modules when deploying with --source
+# Prepare services by copying shared/ directory to each service
+# This script should be run before deployment
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SHARED_DIR="${PROJECT_ROOT}/services/shared"
 
-echo "=========================================="
-echo "  Preparing services for deployment"
-echo "=========================================="
-echo "Copying shared modules to each service..."
-echo ""
-
-# List of services that need shared modules
 SERVICES=(
-  "proxy"
-  "processor-art"
-  "processor-base"
-  "discord-registrar"
+    "services/proxy"
+    "services/processor-base"
+    "services/processor-art"
+    "services/discord-registrar"
+    "services/auth-service"
+    "services/user-manager"
 )
 
-# Copy shared modules to each service
-for service in "${SERVICES[@]}"; do
-  SERVICE_DIR="${PROJECT_ROOT}/services/${service}"
-  
-  if [ -d "${SERVICE_DIR}" ]; then
-    echo "  → ${service}"
-    
-    # Remove existing shared directory if it exists
-    rm -rf "${SERVICE_DIR}/shared"
-    
-    # Copy shared directory
-    cp -r "${SHARED_DIR}" "${SERVICE_DIR}/"
-    
-    echo "    ✓ Shared modules copied"
-  else
-    echo "  ⚠ Warning: Service directory not found: ${service}"
-  fi
+for service_dir in "${SERVICES[@]}"; do
+    service_path="${PROJECT_ROOT}/${service_dir}"
+    target_shared="${service_path}/shared"
+
+    if [ ! -d "${service_path}" ]; then
+        continue
+    fi
+
+    rm -rf "${target_shared}" 2>/dev/null || true
+    cp -r "${SHARED_DIR}" "${target_shared}"
 done
-
-echo ""
-echo "=========================================="
-echo "  ✓ All services prepared"
-echo "=========================================="
-echo ""
-echo "Note: shared/ directories are gitignored in service folders"
-echo "They are only used during deployment"
-

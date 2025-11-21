@@ -1,19 +1,16 @@
 """Discord command registration service.
+Uses Functions Framework for Cloud Functions Gen2
 """
-import sys
 import os
+import time
 import requests
-from flask import Flask, jsonify, g
+from functions_framework import http
+from flask import Request, jsonify
 
-# Import shared modules (copied to service directory during deployment)
 from shared.observability import init_observability, traced_function
-from shared.flask_middleware import add_correlation_middleware
+from shared.correlation import with_correlation
 
-app = Flask(__name__)
-
-# Initialize observability
-logger, tracing = init_observability('discord-registrar', app=app)
-add_correlation_middleware(app, logger)
+logger, tracing = init_observability('discord-registrar', app=None)
 
 DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN')
 DISCORD_APPLICATION_ID = os.environ.get('DISCORD_APPLICATION_ID')
@@ -66,10 +63,103 @@ ART_COMMANDS = [
         "name": "snapshot",
         "description": "Take a snapshot of the current canvas",
         "type": 1
+    },
+    {
+        "name": "stats",
+        "description": "Show your statistics and global stats",
+        "type": 1
+    },
+    {
+        "name": "colors",
+        "description": "List supported color names and examples",
+        "type": 1
     }
 ]
 
-ALL_COMMANDS = BASE_COMMANDS + ART_COMMANDS
+USER_COMMANDS = [
+    {
+        "name": "leaderboard",
+        "description": "Show top users by draws",
+        "type": 1
+    },
+    {
+        "name": "userinfo",
+        "description": "Show user information",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to show information for (optional, defaults to you)",
+                "type": 6,  # USER type
+                "required": False
+            }
+        ]
+    },
+    {
+        "name": "register",
+        "description": "Register your account in the system",
+        "type": 1
+    }
+]
+
+ADMIN_COMMANDS = [
+    {
+        "name": "ban",
+        "description": "Ban a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to ban",
+                "type": 6,  # USER type
+                "required": True
+            },
+            {
+                "name": "reason",
+                "description": "Reason for the ban",
+                "type": 3,  # STRING type
+                "required": False
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    },
+    {
+        "name": "unban",
+        "description": "Unban a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to unban",
+                "type": 6,  # USER type
+                "required": True
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    },
+    {
+        "name": "setpremium",
+        "description": "Set premium status for a user (Admin only)",
+        "type": 1,
+        "options": [
+            {
+                "name": "user",
+                "description": "User to set premium status",
+                "type": 6,  # USER type
+                "required": True
+            },
+            {
+                "name": "premium",
+                "description": "Enable or disable premium",
+                "type": 5,  # BOOLEAN type
+                "required": True
+            }
+        ],
+        "default_member_permissions": "8"  # Administrator permission (0x8)
+    }
+]
+
+ALL_COMMANDS = BASE_COMMANDS + ART_COMMANDS + USER_COMMANDS + ADMIN_COMMANDS
 
 
 def register_command(command: dict, correlation_id: str = None) -> dict:
@@ -117,23 +207,55 @@ def register_command(command: dict, correlation_id: str = None) -> dict:
         }
 
 
-@app.route("/health")
-def health():
+@http
+@with_correlation(logger)
+@traced_function("registrar_handler")
+def registrar_handler(request: Request):
+    """Main HTTP handler for registrar service.
+
+    Routes requests to appropriate handlers based on path.
+    """
+    path = request.path
+    method = request.method
+
+    # --- Health check ---
+    if path == "/health" and method == "GET":
+        return health_handler(request)
+
+    # --- Register all commands ---
+    if path == "/register" and method == "POST":
+        return register_all(request)
+
+    # --- Register single command ---
+    if path.startswith("/register/") and method == "POST":
+        command_name = path.split("/register/", 1)[1]
+        return register_one(request, command_name)
+
+    # --- List commands ---
+    if path == "/commands" and method == "GET":
+        return list_commands(request)
+
+    # 404 for unknown paths
+    logger.warning("Unknown path", path=path, method=method)
+    return jsonify({'error': 'Not found'}), 404
+
+
+def health_handler(request: Request):
     """Health check endpoint."""
-    logger.info("Health check called", correlation_id=getattr(g, 'correlation_id', None))
+    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
+    logger.info("Health check called", correlation_id=correlation_id)
     return jsonify({
         'status': 'healthy',
         'service': 'discord-registrar',
         'configured': bool(DISCORD_BOT_TOKEN and DISCORD_APPLICATION_ID)
-    })
+    }), 200
 
 
-@app.route("/register", methods=['POST'])
 @traced_function("register_all_commands")
-def register_all():
+def register_all(request: Request):
     """Register all Discord commands."""
-    correlation_id = getattr(g, 'correlation_id', None)
-    
+    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
+
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
         logger.error("Discord tokens not configured", correlation_id=correlation_id)
         return jsonify({
@@ -142,15 +264,24 @@ def register_all():
         }), 500
 
     logger.info(f"Starting registration of {len(ALL_COMMANDS)} commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
-    
+
     results = []
-    for command in ALL_COMMANDS:
+    for i, command in enumerate(ALL_COMMANDS):
+        # Add delay between registrations to avoid rate limits (except for first command)
+        if i > 0:
+            time.sleep(2)  # 2 second delay between commands
+
         result = register_command(command, correlation_id)
         results.append({
             'command': command['name'],
             'status': result['status'],
             'message': result['message']
         })
+
+        # If we hit rate limit, wait longer before continuing
+        if result['status'] == 'error' and '429' in result.get('message', ''):
+            logger.warning(f"Rate limit hit, waiting 5 seconds before continuing", correlation_id=correlation_id)
+            time.sleep(5)
 
     success_count = sum(1 for r in results if r['status'] == 'success')
     error_count = len(results) - success_count
@@ -162,22 +293,20 @@ def register_all():
         success=success_count,
         errors=error_count
     )
-
     return jsonify({
         'status': 'completed',
         'total': len(results),
         'success': success_count,
         'errors': error_count,
         'results': results
-    })
+    }), 200
 
 
-@app.route("/register/<command_name>", methods=['POST'])
 @traced_function("register_single_command")
-def register_one(command_name: str):
+def register_one(request: Request, command_name: str):
     """Register a specific command."""
-    correlation_id = getattr(g, 'correlation_id', None)
-    
+    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
+
     if not DISCORD_BOT_TOKEN or not DISCORD_APPLICATION_ID:
         logger.error("Discord tokens not configured", correlation_id=correlation_id)
         return jsonify({
@@ -200,15 +329,13 @@ def register_one(command_name: str):
     return jsonify(result), status_code
 
 
-@app.route("/commands", methods=['GET'])
-def list_commands():
+def list_commands(request: Request):
     """List all defined commands."""
-    correlation_id = getattr(g, 'correlation_id', None)
+    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
     logger.info("Listing all commands", correlation_id=correlation_id, total_commands=len(ALL_COMMANDS))
     return jsonify({
         'commands': ALL_COMMANDS,
         'base_count': len(BASE_COMMANDS),
         'art_count': len(ART_COMMANDS),
         'total': len(ALL_COMMANDS)
-    })
-
+    }), 200

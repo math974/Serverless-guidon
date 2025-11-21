@@ -4,56 +4,141 @@ set -euo pipefail
 
 # Update API Gateway to point to the Proxy Service
 # Usage:
-#   PROJECT_ID=your-project API_ID=guidon-api GATEWAY_ID=guidon REGION=europe-west1 PROXY_SERVICE=discord-proxy ./update-gateway-proxy.sh
+#   PROJECT_ID=your-project API_ID=guidon-api GATEWAY_ID=guidon REGION=europe-west1 PROXY_SERVICE=proxy ./update-gateway-proxy.sh
 
 : "${PROJECT_ID:=serverless-ejguidon-dev}"
 : "${API_ID:=guidon-api}"
 : "${GATEWAY_ID:=guidon}"
-: "${PROXY_SERVICE:=discord-proxy}"
+: "${PROXY_SERVICE:=proxy}"
+: "${AUTH_SERVICE:=discord-auth-service}"
 : "${REGION:=europe-west1}"
 
-echo "Updating API Gateway to point to Proxy Service..."
-echo "Project:        ${PROJECT_ID}"
-echo "API ID:         ${API_ID}"
-echo "Gateway ID:     ${GATEWAY_ID}"
-echo "Proxy Service:  ${PROXY_SERVICE}"
-echo "Region:         ${REGION}"
+echo "Updating API Gateway..."
 
-# Get Proxy Service URL
-echo "\n[1/3] Getting Proxy Service URL..."
-PROXY_URL=$(gcloud run services describe "${PROXY_SERVICE}" \
+echo "[1/4] Getting proxy URL..."
+PROXY_URL=$(gcloud functions describe "${PROXY_SERVICE}" \
+  --gen2 \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
-  --format="value(status.url)")
+  --format="value(serviceConfig.uri)")
 
 if [ -z "${PROXY_URL}" ]; then
-    echo "ERROR: Could not find Proxy Service '${PROXY_SERVICE}'"
+    echo "Error: Proxy service not found"
     exit 1
 fi
 
-echo "Proxy Service URL: ${PROXY_URL}"
+echo "[2/4] Getting auth-service URL..."
+AUTH_URL=$(gcloud functions describe "${AUTH_SERVICE}" \
+  --gen2 \
+  --region="${REGION}" \
+  --project="${PROJECT_ID}" \
+  --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
 
-# Update OpenAPI spec with Proxy URL
+if [ -z "${AUTH_URL}" ]; then
+    echo "Warning: Auth service not found (auth endpoints will not be updated)"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SPEC_FILE="${PROJECT_ROOT}/configs/openapi2-run.yaml"
 TEMP_SPEC="${SPEC_FILE}.tmp"
 
-echo "\n[2/3] Updating OpenAPI spec..."
-# Extract domain from URL (remove https://)
-PROXY_DOMAIN=$(echo "${PROXY_URL}" | sed 's|https://||')
+echo "[3/4] Updating OpenAPI spec..."
+if [ ! -f "${SPEC_FILE}" ]; then
+    echo "Error: OpenAPI spec not found: ${SPEC_FILE}"
+    exit 1
+fi
 
-# Update the address in the OpenAPI spec
-sed "s|address: https://[^ ]*|address: ${PROXY_URL}|g" "${SPEC_FILE}" > "${TEMP_SPEC}"
+export SPEC_FILE TEMP_SPEC PROXY_URL AUTH_URL
+
+# Try Python with PyYAML first, fallback to sed if not available
+if python3 -c "import yaml" 2>/dev/null; then
+    python3 << 'PYTHON_SCRIPT'
+import yaml
+import sys
+import os
+
+spec_file = os.environ['SPEC_FILE']
+temp_spec = os.environ['TEMP_SPEC']
+proxy_url = os.environ['PROXY_URL']
+auth_url = os.environ.get('AUTH_URL', '')
+
+try:
+    # Read YAML file
+    with open(spec_file, 'r') as f:
+        spec = yaml.safe_load(f)
+
+    if not spec or 'paths' not in spec:
+        print("ERROR: Invalid OpenAPI spec structure", file=sys.stderr)
+        sys.exit(1)
+
+    # Update proxy endpoints
+    proxy_endpoints = ['/discord/interactions', '/web/interactions', '/health']
+    for endpoint in proxy_endpoints:
+        if endpoint in spec['paths']:
+            path_config = spec['paths'][endpoint]
+            # Find the operation (post, get, etc.) and update its backend address
+            for method in path_config:
+                if isinstance(path_config[method], dict) and 'x-google-backend' in path_config[method]:
+                    spec['paths'][endpoint][method]['x-google-backend']['address'] = proxy_url
+                    print(f"  Updated {endpoint} ({method}) → {proxy_url}")
+
+    # Update auth endpoints
+    if auth_url:
+        auth_endpoints = ['/auth/login', '/auth/callback', '/auth/logout', '/auth/verify', '/auth/user']
+        for endpoint in auth_endpoints:
+            if endpoint in spec['paths']:
+                path_config = spec['paths'][endpoint]
+                for method in path_config:
+                    if isinstance(path_config[method], dict) and 'x-google-backend' in path_config[method]:
+                        spec['paths'][endpoint][method]['x-google-backend']['address'] = auth_url
+                        print(f"  Updated {endpoint} ({method}) → {auth_url}")
+
+    # Write updated YAML (preserve formatting)
+    with open(temp_spec, 'w') as f:
+        yaml.dump(spec, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    print("OpenAPI spec updated")
+except Exception as e:
+    print(f"Error: Failed to update OpenAPI spec: {e}", file=sys.stderr)
+    sys.exit(1)
+PYTHON_SCRIPT
+    PYTHON_EXIT=$?
+    if [ $PYTHON_EXIT -ne 0 ]; then
+        echo "Python script failed, using sed fallback..."
+        USE_SED=1
+    else
+        USE_SED=0
+    fi
+else
+    echo "Using sed fallback (PyYAML not available)..."
+    USE_SED=1
+fi
+
+if [ "$USE_SED" = "1" ]; then
+    # Fallback to sed if Python/PyYAML is not available
+    cp "${SPEC_FILE}" "${TEMP_SPEC}"
+
+    if [ ! -z "${AUTH_URL}" ]; then
+        sed -i.bak \
+          -e "s|address: https://discord-auth-service[^ ]*|address: ${AUTH_URL}|g" \
+          "${TEMP_SPEC}"
+    fi
+
+    sed -i.bak \
+      -e "s|address: https://proxy[^ ]*|address: ${PROXY_URL}|g" \
+      -e "s|address: https://[^-]*-gdu7lmfosq-ew\.a\.run\.app|address: ${PROXY_URL}|g" \
+      "${TEMP_SPEC}"
+
+    rm -f "${TEMP_SPEC}.bak" 2>/dev/null || true
+fi
+
 mv "${TEMP_SPEC}" "${SPEC_FILE}"
 
-echo "Updated OpenAPI spec with Proxy URL: ${PROXY_URL}"
-
-# Deploy new API Gateway config
 DATE_SUFFIX="$(date +%Y%m%d%H%M%S)"
-CONFIG_ID="config-proxy-${DATE_SUFFIX}"
+CONFIG_ID="config-${DATE_SUFFIX}"
 
-echo "\n[3/3] Deploying new API Gateway config..."
+echo "[4/4] Deploying gateway config..."
 gcloud api-gateway api-configs create "${CONFIG_ID}" \
   --api="${API_ID}" \
   --openapi-spec="${SPEC_FILE}" \
@@ -71,24 +156,10 @@ GATEWAY_URL="https://$(gcloud api-gateway gateways describe "${GATEWAY_ID}" \
   --project="${PROJECT_ID}" \
   --format="value(defaultHostname)")"
 
-echo "\n✓ Done! API Gateway updated successfully"
-echo "\nGateway URL: ${GATEWAY_URL}"
-echo "Proxy Service: ${PROXY_URL}"
-echo "\nArchitecture flow:"
-echo "  Discord → ${GATEWAY_URL} → ${PROXY_URL} → Pub/Sub Topics → Processor Services"
-echo "\nTest endpoints:"
-echo "  # Health check"
-echo "  curl -i ${GATEWAY_URL}/health"
-echo ""
-echo "  # Discord interaction (ping)"
-echo "  curl -i -X POST ${GATEWAY_URL}/discord/interactions \\"
-echo "    -H 'Content-Type: application/json' \\"
-echo "    -H 'X-Signature-Ed25519: test' \\"
-echo "    -H 'X-Signature-Timestamp: test' \\"
-echo "    -d '{\"type\":1}'"
-echo ""
-echo "  # Web interaction (ping)"
-echo "  curl -i -X POST ${GATEWAY_URL}/web/interactions \\"
-echo "    -H 'Content-Type: application/json' \\"
-echo "    -d '{\"command\":\"ping\"}'"
+echo "Gateway updated"
+echo "Gateway URL: ${GATEWAY_URL}"
+echo "Proxy: ${PROXY_URL}"
+if [ ! -z "${AUTH_URL}" ]; then
+    echo "Auth: ${AUTH_URL}"
+fi
 
