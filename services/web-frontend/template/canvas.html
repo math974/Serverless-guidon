@@ -534,6 +534,7 @@
         const PIXEL_SIZE = 10;
         const GATEWAY_BASE_URL = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : window.location.origin;
 
+        const DEFAULT_COLOR = '#FFFFFF';
         let canvasData = [];
         let currentZoom = 1;
         let selectedColor = '#FF0000';
@@ -545,6 +546,16 @@
         const colorInput = document.getElementById('colorInput');
         const xInput = document.getElementById('xInput');
         const yInput = document.getElementById('yInput');
+
+        function normalizeColorValue(color) {
+            if (typeof color === 'string') {
+                const upper = color.toUpperCase();
+                if (/^#[0-9A-F]{6}$/.test(upper)) {
+                    return upper;
+                }
+            }
+            return DEFAULT_COLOR;
+        }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const sessionId = getSessionId();
@@ -665,7 +676,7 @@
 
                 const user = getUserData();
                 if (!user) {
-                    showNotification('User information not available. Please refresh the page.', 'error');
+                    showNotification('Informations utilisateur indisponibles. Veuillez rafraîchir la page.', 'error');
                     showLoading(false);
                     return;
                 }
@@ -680,7 +691,7 @@
                         'X-Session-ID': sessionId || ''
                     },
                     body: JSON.stringify({
-                        command: 'snapshot',
+                        command: 'canvas_state',
                         token: token,
                         application_id: 'web-client',
                         user_id: user.id,
@@ -693,16 +704,16 @@
                 });
 
                 if (response.status === 202) {
-                    await pollForSnapshotResult(token);
+                    await pollForCanvasStateResult(token);
                 } else if (response.ok) {
                     const data = await response.json();
-                    console.log('Canvas snapshot response:', data);
+                    console.log('Canvas state response:', data);
                     if (data.status === 'success') {
-                        await handleSnapshotResponse(data);
+                        await handleCanvasStateResponse(data);
                     } else if (data.status === 'processing') {
-                        await pollForSnapshotResult(token);
+                        await pollForCanvasStateResult(token);
                     } else {
-                        console.error('Unexpected status in snapshot response:', data.status);
+                        console.error('Unexpected status in canvas response:', data.status);
                         showNotification('Failed to load canvas: ' + (data.message || 'Unknown error'), 'error');
                     }
                 } else {
@@ -718,7 +729,7 @@
             }
         }
 
-        async function pollForSnapshotResult(token) {
+        async function pollForCanvasStateResult(token) {
             const maxAttempts = 30;
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
@@ -728,18 +739,68 @@
                     if (response.status === 200) {
                         const data = await response.json();
                         if (data.status === 'success') {
-                            await handleSnapshotResponse(data);
+                            await handleCanvasStateResponse(data);
+                            return;
+                        } else if (data.status === 'error') {
+                            showNotification(data.message || 'Failed to load canvas', 'error');
                             return;
                         }
                     } else if (response.status !== 202) {
                         break;
                     }
                 } catch (error) {
-                    console.error('Error polling for snapshot:', error);
+                    console.error('Error polling for canvas state:', error);
                     break;
                 }
             }
-            showNotification('Timeout waiting for canvas snapshot', 'error');
+            showNotification('Timeout waiting for canvas state', 'error');
+        }
+
+        async function handleCanvasStateResponse(data) {
+            console.log('Canvas state response data:', data);
+            const canvasPayload = data.canvas || data.data?.canvas || data.data?.data?.canvas;
+
+            if (!canvasPayload) {
+                console.error('No canvas payload found in response:', data);
+                throw new Error('No canvas payload in response');
+            }
+
+            let pixels = canvasPayload.pixels;
+
+            if (!pixels && typeof canvasPayload.state_json === 'string') {
+                try {
+                    pixels = JSON.parse(canvasPayload.state_json);
+                } catch (error) {
+                    console.error('Failed to parse canvas JSON:', error);
+                }
+            }
+
+            if (!pixels || !Array.isArray(pixels)) {
+                console.error('Invalid canvas data in response:', canvasPayload);
+                throw new Error('Invalid canvas data');
+            }
+
+            const normalized = [];
+            for (let y = 0; y < CANVAS_SIZE; y++) {
+                const rowData = pixels[y] || [];
+                const row = [];
+                for (let x = 0; x < CANVAS_SIZE; x++) {
+                    row.push(normalizeColorValue(rowData[x] || DEFAULT_COLOR));
+                }
+                normalized.push(row);
+            }
+
+            canvasData = normalized;
+            renderCanvas();
+
+            const statsPayload = canvasPayload.stats || data.stats || data.data?.stats || null;
+            if (statsPayload) {
+                updateStatsDisplay(statsPayload);
+            } else {
+                await loadStats();
+            }
+
+            showNotification('Canvas chargé avec succès !', 'success');
         }
 
         async function handleSnapshotResponse(data) {
@@ -990,8 +1051,31 @@
             }
         }
 
+        function updateStatsDisplay(stats) {
+            if (!stats) {
+                return;
+            }
+
+            const totalPixelsEl = document.getElementById('totalPixels');
+            const contributorsEl = document.getElementById('contributors');
+
+            if (totalPixelsEl && typeof stats.total_pixels !== 'undefined') {
+                totalPixelsEl.textContent = stats.total_pixels;
+            }
+
+            if (contributorsEl && typeof stats.unique_contributors !== 'undefined') {
+                contributorsEl.textContent = stats.unique_contributors;
+            }
+        }
+
         function parseStatsFromResponse(data) {
             console.log('Parsing stats from response:', data);
+            const statsPayload = data.stats || data.canvas?.stats || data.data?.stats || null;
+            if (statsPayload) {
+                updateStatsDisplay(statsPayload);
+                return;
+            }
+
             const embeds = data.data?.embeds || data.data?.data?.embeds || data.embeds || [];
             if (embeds.length > 0 && embeds[0].fields) {
                 const fields = embeds[0].fields;

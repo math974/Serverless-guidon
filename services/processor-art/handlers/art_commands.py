@@ -305,6 +305,57 @@ def handle_snapshot(interaction: dict = None):
     )
     return create_response(embed)
 
+
+@CommandHandler.register('canvas_state')
+def handle_canvas_state(interaction: dict = None):
+    """Return the full canvas matrix for web rendering."""
+    correlation_id = interaction.get('correlation_id') if interaction else None
+
+    if CANVAS_MANAGER is None:
+        logger.warning("CanvasManager unavailable for canvas_state", correlation_id=correlation_id)
+        return {
+            'status': 'error',
+            'message': 'Canvas backend is unavailable. Please try again shortly.'
+        }
+
+    try:
+        canvas_array = CANVAS_MANAGER.get_canvas_array()
+        stats = CANVAS_MANAGER.get_canvas_stats()
+
+        if stats.get('last_update') and hasattr(stats['last_update'], 'isoformat'):
+            stats['last_update'] = stats['last_update'].isoformat()
+
+        payload = {
+            'size': CANVAS_MANAGER.CANVAS_SIZE,
+            'pixels': canvas_array,
+            'generated_at': datetime.now(timezone.utc).isoformat(),
+            'stats': stats
+        }
+
+        pixel_count = sum(len(row) for row in canvas_array) if canvas_array else 0
+        logger.info(
+            "Canvas state generated",
+            correlation_id=correlation_id,
+            pixel_count=pixel_count
+        )
+
+        return {
+            'status': 'success',
+            'canvas': payload,
+            'stats': stats
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to build canvas state",
+            error=exc,
+            correlation_id=correlation_id
+        )
+        return {
+            'status': 'error',
+            'message': 'Failed to load canvas state.'
+        }
+
+
 @CommandHandler.register('stats')
 def handle_stats(interaction: dict = None):
     correlation_id = interaction.get('correlation_id') if interaction else None
