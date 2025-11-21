@@ -76,7 +76,7 @@
                 "timeSeriesQuery": {
                   "timeSeriesFilterRatio": {
                     "numerator": {
-                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.response_code_class=\"5xx\"",
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.label.response_code_class=\"5xx\"",
                       "aggregation": {
                         "alignmentPeriod": "60s",
                         "perSeriesAligner": "ALIGN_RATE",
@@ -102,14 +102,7 @@
             "yAxis": {
               "label": "Taux d'erreur",
               "scale": "LINEAR"
-            },
-            "thresholds": [
-              {
-                "value": 0.05,
-                "color": "RED",
-                "direction": "ABOVE"
-              }
-            ]
+            }
           }
         }
       },
@@ -149,7 +142,7 @@
               {
                 "timeSeriesQuery": {
                   "timeSeriesFilter": {
-                    "filter": "resource.type=\"cloud_run_revision\" AND resource.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\"",
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\"",
                     "aggregation": {
                       "alignmentPeriod": "60s",
                       "perSeriesAligner": "ALIGN_MEAN",
@@ -179,7 +172,7 @@
               {
                 "timeSeriesQuery": {
                   "timeSeriesFilter": {
-                    "filter": "resource.type=\"cloud_run_revision\" AND resource.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\"",
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"proxy\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\"",
                     "aggregation": {
                       "alignmentPeriod": "60s",
                       "perSeriesAligner": "ALIGN_MEAN",
