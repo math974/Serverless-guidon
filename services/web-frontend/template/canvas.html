@@ -529,7 +529,8 @@
 
     <div class="notification" id="notification"></div>
 
-    <script>
+    <script type="module">
+        import { listenForCanvasDrawEvents } from './js/pubSubEvent.js';
         const CANVAS_SIZE = 48;
         const PIXEL_SIZE = 10;
         const GATEWAY_BASE_URL = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : window.location.origin;
@@ -577,7 +578,8 @@
 
             await loadUserInfo();
 
-            loadCanvas();
+            listenForCanvasDrawEvents()
+            // loadCanvas();
             setupEventListeners();
             // Auto-refresh disabled to avoid spamming snapshot commands
             // Use the "Load Canvas" button to manually refresh
