@@ -222,7 +222,7 @@ def handle_draw(interaction: dict = None):
     if not canvas_result.get('changed'):
         description = "Pixel already had this color. No changes made."
 
-    return create_success_embed(
+    embed = create_embed(
         title='Pixel Placed Successfully',
         description=description,
         color=int(color_hex.replace('#', ''), 16),
@@ -231,6 +231,7 @@ def handle_draw(interaction: dict = None):
         thumbnail=create_user_thumbnail(avatar_url) if avatar_url else None,
         author=create_user_author(username, avatar_url) if avatar_url else None
     )
+    return create_response(embed, ephemeral=False)
 
 @CommandHandler.register('snapshot')
 def handle_snapshot(interaction: dict = None):

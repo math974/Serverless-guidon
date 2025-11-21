@@ -54,6 +54,16 @@ paths:
           schema:
             type: string
   /web/interactions:
+    options:
+      summary: CORS preflight for web interactions
+      description: Handle CORS preflight requests
+      operationId: webInteractionsOptions
+      x-google-backend:
+        address: https://proxy-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Handle web interactions
       description: Endpoint for web client interactions. Routes to Proxy Service which publishes to Pub/Sub topics.
@@ -102,7 +112,64 @@ paths:
           description: Service Temporarily Unavailable
           schema:
             type: object
+  /web/response/{token}:
+    options:
+      summary: CORS preflight for web response
+      description: Handle CORS preflight requests for web response polling
+      operationId: webResponseOptions
+      x-google-backend:
+        address: https://proxy-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      parameters:
+        - name: token
+          in: path
+          required: true
+          type: string
+          description: Response token
+      responses:
+        '200':
+          description: CORS preflight response
+    get:
+      summary: Get web interaction response
+      description: Retrieve the response for an asynchronous web interaction using the token
+      operationId: webResponse
+      x-google-backend:
+        address: https://proxy-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      parameters:
+        - name: token
+          in: path
+          required: true
+          type: string
+          description: Response token from the initial interaction
+      responses:
+        '200':
+          description: Response is ready
+          schema:
+            type: object
+        '202':
+          description: Response not ready yet, keep polling
+          schema:
+            type: object
+        '404':
+          description: Token not found
+          schema:
+            type: object
+        '500':
+          description: Internal Server Error
+          schema:
+            type: object
   /health:
+    options:
+      summary: CORS preflight for health check
+      description: Handle CORS preflight requests
+      operationId: healthCheckOptions
+      x-google-backend:
+        address: https://proxy-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     get:
       summary: Web service health check endpoint
       description: Endpoint for checking the health status of the proxy service
@@ -170,6 +237,16 @@ paths:
           schema:
             type: object
   /auth/logout:
+    options:
+      summary: CORS preflight for logout
+      description: Handle CORS preflight requests
+      operationId: authLogoutOptions
+      x-google-backend:
+        address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Logout user
       description: Invalidates user session
@@ -200,6 +277,16 @@ paths:
           schema:
             type: object
   /auth/verify:
+    options:
+      summary: CORS preflight for verify
+      description: Handle CORS preflight requests
+      operationId: authVerifyOptions
+      x-google-backend:
+        address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Verify session
       description: Verify if a session token is valid
@@ -234,6 +321,16 @@ paths:
           schema:
             type: object
   /auth/user:
+    options:
+      summary: CORS preflight for get user
+      description: Handle CORS preflight requests
+      operationId: authGetUserOptions
+      x-google-backend:
+        address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     get:
       summary: Get current user information
       description: Get user information from session

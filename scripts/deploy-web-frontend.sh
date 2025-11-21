@@ -12,6 +12,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+echo "Preparing service..."
+"${SCRIPT_DIR}/prepare-services.sh"
+
 echo "Deploying ${SERVICE_NAME}..."
 
 gcloud functions deploy "${SERVICE_NAME}" \

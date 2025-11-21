@@ -7,7 +7,7 @@ Discord requires responses within 3 seconds. This service:
 - Always responds within 3 seconds to Discord
 """
 from functions_framework import http
-from flask import Request, jsonify
+from flask import Request, jsonify, make_response, Response
 
 from shared.observability import init_observability, traced_function
 from config import (
@@ -20,8 +20,21 @@ from pubsub_utils import get_topic_for_command, publish_to_pubsub
 from response_utils import get_error_response
 from shared.correlation import with_correlation
 
-# Initialize observability (without Flask app)
 logger, tracing = init_observability('discord-proxy', app=None)
+
+# In-memory storage for web responses (token -> response)
+# In production, consider using Firestore or Redis for persistence
+_web_responses = {}
+
+
+def add_cors_headers(response):
+    """Add CORS headers to response."""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Session-ID, X-Correlation-ID, Authorization'
+    response.headers['Access-Control-Max-Age'] = '3600'
+    return response
+
 
 @http
 @with_correlation(logger)
@@ -34,9 +47,15 @@ def proxy_handler(request: Request):
     path = request.path
     method = request.method
 
+    # Handle CORS preflight requests
+    if method == 'OPTIONS':
+        response = make_response('', 200)
+        return add_cors_headers(response)
+
     # --- Health check ---
     if path == "/health" and method == "GET":
-        return health_handler(request)
+        response = health_handler(request)
+        return add_cors_headers(response)
 
     # --- Discord response endpoint ---
     if path == "/discord/response" and method == "POST":
@@ -44,11 +63,22 @@ def proxy_handler(request: Request):
 
     # --- Web response endpoint ---
     if path == "/web/response" and method == "POST":
-        return receive_web_response(request)
+        result = receive_web_response(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
+
+    # --- Get web response by token ---
+    if path.startswith("/web/response/") and method == "GET":
+        token = path.split("/web/response/")[-1]
+        result = get_web_response(token)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     # --- Web interactions endpoint ---
     if path == "/web/interactions" and method == "POST":
-        return web_interactions(request)
+        result = web_interactions(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     # --- Discord interactions endpoint ---
     if path == "/discord/interactions" and method == "POST":
@@ -56,8 +86,10 @@ def proxy_handler(request: Request):
 
     # 404 for unknown paths
     logger.warning("Unknown path", path=path, method=method)
-    return jsonify({'error': 'Not found'}), 404
-
+    response = jsonify({'error': 'Not found'}), 404
+    if isinstance(response, tuple):
+        response = make_response(response[0], response[1])
+    return add_cors_headers(response)
 
 def health_handler(request: Request):
     """Health check endpoint."""
@@ -130,7 +162,7 @@ def receive_processor_response(request: Request):
 
 
 def receive_web_response(request: Request):
-    """Receive response from processor for web interactions."""
+    """Receive response from processor for web interactions and store it."""
     correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
 
     try:
@@ -159,11 +191,34 @@ def receive_web_response(request: Request):
                 'data': response
             }
 
+        # Store response for retrieval by token
+        _web_responses[token] = web_response
+        logger.info("Stored web response", correlation_id=correlation_id, token=token[:10] + "...")
+
         return jsonify(web_response), 200
 
     except Exception as e:
         logger.error("Error in receive_web_response", error=e, correlation_id=correlation_id)
         return jsonify({'status': 'error', 'message': 'Internal error'}), 500
+
+
+def get_web_response(token: str):
+    """Get stored web response by token."""
+    if not token:
+        response = jsonify({'status': 'error', 'message': 'Missing token'})
+        return add_cors_headers(response), 400
+
+    logger.info("Getting web response", token=token[:10] + "...")
+
+    if token in _web_responses:
+        response = _web_responses[token]
+        # Delete after retrieval to save memory
+        del _web_responses[token]
+        result = jsonify(response)
+        return add_cors_headers(result), 200
+    else:
+        result = jsonify({'status': 'processing', 'message': 'Response not ready yet'})
+        return add_cors_headers(result), 202
 
 
 def web_interactions(request: Request):
@@ -197,6 +252,9 @@ def web_interactions(request: Request):
         pubsub_data['correlation_id'] = correlation_id  # Propagate correlation ID
         topic = get_topic_for_command(command_name)
 
+        # Get token from interaction data for polling
+        token = data.get('token') or pubsub_data.get('interaction', {}).get('token')
+
         try:
             message_id = publish_to_pubsub(topic, pubsub_data, logger=logger, correlation_id=correlation_id)
             logger.info(
@@ -209,7 +267,8 @@ def web_interactions(request: Request):
             return jsonify({
                 'status': 'processing',
                 'message': 'Command is being processed',
-                'command': command_name
+                'command': command_name,
+                'token': token
             }), 202
         except Exception as e:
             logger.error("Failed to publish web interaction to Pub/Sub", error=e, correlation_id=correlation_id, topic=topic)

@@ -16,6 +16,7 @@ SERVICES=(
     "services/discord-registrar"
     "services/auth-service"
     "services/user-manager"
+    "services/web-frontend"
 )
 
 for service_dir in "${SERVICES[@]}"; do

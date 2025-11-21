@@ -9,6 +9,9 @@ logger, _ = init_observability('discord-proxy', app=None)
 # User manager service URL
 USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
+# Timeout for user-manager requests (in seconds)
+USER_MANAGER_TIMEOUT = float(os.getenv('USER_MANAGER_TIMEOUT', '10'))
+
 
 def get_auth_token() -> Optional[str]:
     """Get Google Cloud identity token for calling user-manager."""
@@ -76,10 +79,18 @@ def is_user_registered(
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         return user_response.status_code == 200
+    except requests.exceptions.Timeout:
+        logger.warning(
+            "Timeout checking if user is registered",
+            correlation_id=correlation_id,
+            user_id=user_id,
+            timeout=USER_MANAGER_TIMEOUT
+        )
+        return False
     except Exception as e:
         logger.warning(
             "Error checking if user is registered",
@@ -128,7 +139,7 @@ def check_user_allowed(
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         is_premium = False
@@ -168,7 +179,7 @@ def check_user_allowed(
                 'is_premium': is_premium
             },
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         if rate_limit_response.status_code == 429:
@@ -258,7 +269,7 @@ def create_or_update_user(
                 **kwargs
             },
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         if response.status_code == 200:
@@ -318,7 +329,7 @@ def increment_user_usage(
             f"{USER_MANAGER_URL}/api/users/{user_id}/increment",
             json={'command': command},
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         if response.status_code == 200:
