@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Canvas 48x48</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .canvas-section {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .canvas-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1rem;
+            position: relative;
+        }
+
+        #canvas {
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            cursor: crosshair;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .canvas-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .color-picker-wrapper {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        input[type="color"] {
+            width: 60px;
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .preset-colors {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .preset-color {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .preset-color:hover {
+            transform: scale(1.1);
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .preset-color.active {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+        }
+
+        .sidebar {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .info-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-panel h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .coords-display {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            text-align: center;
+            color: #666;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .zoom-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .zoom-level {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #667eea;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .activity-feed {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .activity-item {
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            border-left: 3px solid #667eea;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .activity-item .time {
+            color: #999;
+            font-size: 0.75rem;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            animation: slideInRight 0.3s ease;
+            z-index: 999;
+            max-width: 300px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-left: 4px solid #28a745;
+        }
+
+        .notification.error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .notification.info {
+            border-left: 4px solid #17a2b8;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span>🎨</span>
+            Collaborative Canvas 48x48
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="loadCanvas()">
+                🔄 Refresh
+            </button>
+            <button class="btn btn-secondary" onclick="exportCanvas()">
+                💾 Export PNG
+            </button>
+            <button class="btn btn-primary" onclick="takeSnapshot()">
+                📸 Take Snapshot
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="canvas-section">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" width="480" height="480"></canvas>
+            </div>
+
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="zoomOut()">−</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button class="zoom-btn" onclick="zoomIn()">+</button>
+            </div>
+
+            <div class="coords-display" id="coordsDisplay">
+                Move mouse over canvas
+            </div>
+
+            <div class="canvas-controls">
+                <div class="control-group">
+                    <label>Color Picker</label>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="colorPicker" value="#FF0000">
+                        <input type="text" id="colorInput" value="#FF0000" maxlength="7" style="flex: 1;">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>X Coordinate (0-47)</label>
+                    <input type="number" id="xInput" min="0" max="47" value="24">
+                </div>
+
+                <div class="control-group">
+                    <label>Y Coordinate (0-47)</label>
+                    <input type="number" id="yInput" min="0" max="47" value="24">
+                </div>
+
+                <div class="control-group">
+                    <button class="btn btn-primary" onclick="drawPixel()" style="width: 100%; margin-top: 1.3rem;">
+                        🎨 Draw Pixel
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Preset Colors</label>
+                <div class="preset-colors">
+                    <div class="preset-color" style="background: #FF0000" onclick="setColor('#FF0000')" title="Red"></div>
+                    <div class="preset-color" style="background: #00FF00" onclick="setColor('#00FF00')" title="Green"></div>
+                    <div class="preset-color" style="background: #0000FF" onclick="setColor('#0000FF')" title="Blue"></div>
+                    <div class="preset-color" style="background: #FFFF00" onclick="setColor('#FFFF00')" title="Yellow"></div>
+                    <div class="preset-color" style="background: #FF00FF" onclick="setColor('#FF00FF')" title="Magenta"></div>
+                    <div class="preset-color" style="background: #00FFFF" onclick="setColor('#00FFFF')" title="Cyan"></div>
+                    <div class="preset-color" style="background: #FFA500" onclick="setColor('#FFA500')" title="Orange"></div>
+                    <div class="preset-color" style="background: #800080" onclick="setColor('#800080')" title="Purple"></div>
+                    <div class="preset-color" style="background: #FFC0CB" onclick="setColor('#FFC0CB')" title="Pink"></div>
+                    <div class="preset-color" style="background: #A52A2A" onclick="setColor('#A52A2A')" title="Brown"></div>
+                    <div class="preset-color" style="background: #000000" onclick="setColor('#000000')" title="Black"></div>
+                    <div class="preset-color" style="background: #FFFFFF" onclick="setColor('#FFFFFF')" title="White" style="border: 1px solid #ddd;"></div>
+                    <div class="preset-color" style="background: #808080" onclick="setColor('#808080')" title="Gray"></div>
+                    <div class="preset-color" style="background: #FFD700" onclick="setColor('#FFD700')" title="Gold"></div>
+                    <div class="preset-color" style="background: #FF7F50" onclick="setColor('#FF7F50')" title="Coral"></div>
+                    <div class="preset-color" style="background: #40E0D0" onclick="setColor('#40E0D0')" title="Turquoise"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="info-panel">
+                <h3>📊 Canvas Stats</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Total Pixels</span>
+                    <span class="stat-value" id="totalPixels">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Contributors</span>
+                    <span class="stat-value" id="contributors">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Last Update</span>
+                    <span class="stat-value" id="lastUpdate">Never</span>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>🔥 Recent Activity</h3>
+                <div class="activity-feed" id="activityFeed">
+                    <div class="activity-item">
+                        <div>Waiting for canvas data...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>ℹ️ Info</h3>
+                <div style="font-size: 0.85rem; color: #666; line-height: 1.6;">
+                    <p><strong>How to use:</strong></p>
+                    <ul style="margin: 0.5rem 0 0 1.5rem;">
+                        <li>Click on canvas to draw</li>
+                        <li>Use color picker or presets</li>
+                        <li>Auto-refreshes every 5 seconds</li>
+                        <li>Snapshots saved to GCS</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading canvas...</div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script type="module">
+        import { listenForCanvasDrawEvents } from './js/pubSubEvent.js';
+        const CANVAS_SIZE = 48;
+        const PIXEL_SIZE = 10;
+        const GATEWAY_BASE_URL = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : window.location.origin;
+
+        const DEFAULT_COLOR = '#FFFFFF';
+        let canvasData = [];
+        let currentZoom = 1;
+        let selectedColor = '#FF0000';
+        let userData = null;
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorInput = document.getElementById('colorInput');
+        const xInput = document.getElementById('xInput');
+        const yInput = document.getElementById('yInput');
+
+        function normalizeColorValue(color) {
+            if (typeof color === 'string') {
+                const upper = color.toUpperCase();
+                if (/^#[0-9A-F]{6}$/.test(upper)) {
+                    return upper;
+                }
+            }
+            return DEFAULT_COLOR;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                const loginUrl = window.location.origin + '/auth/login';
+                window.location.href = loginUrl;
+                return;
+            }
+
+            // Verify session is still valid before proceeding
+            const isValid = await verifySession(sessionId);
+            if (!isValid) {
+                // Session expired or invalid, clear it and redirect to login
+                localStorage.removeItem('guidon_session');
+                const loginUrl = window.location.origin + '/auth/login';
+                window.location.href = loginUrl;
+                return;
+            }
+
+            await loadUserInfo();
+
+            listenForCanvasDrawEvents()
+            // loadCanvas();
+            setupEventListeners();
+            // Auto-refresh disabled to avoid spamming snapshot commands
+            // Use the "Load Canvas" button to manually refresh
+        });
+
+        async function loadUserInfo() {
+            try {
+                const sessionId = getSessionId();
+                if (!sessionId) {
+                    return;
+                }
+
+                const response = await fetch(`${GATEWAY_BASE_URL}/auth/user`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Session-ID': sessionId
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('User info response:', data);
+
+                    if (data.user_id || data.user) {
+                        const user = data.user || data;
+                        userData = {
+                            id: user.user_id || user.id,
+                            username: user.username || 'web-user',
+                            avatar: user.avatar || null
+                        };
+                        console.log('User info loaded:', userData);
+                    } else {
+                        console.warn('No user data in response:', data);
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.warn('Failed to load user info:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('Error loading user info:', error);
+            }
+        }
+
+        function getUserData() {
+            if (!userData) {
+                console.warn('User data not loaded yet, commands may fail. Please wait for user info to load.');
+                return null;
+            }
+            return userData;
+        }
+
+        function setupEventListeners() {
+            colorPicker.addEventListener('change', (e) => {
+                selectedColor = e.target.value.toUpperCase();
+                colorInput.value = selectedColor;
+            });
+
+            colorInput.addEventListener('change', (e) => {
+                const value = e.target.value.toUpperCase();
+                if (/^#[0-9A-F]{6}$/.test(value)) {
+                    selectedColor = value;
+                    colorPicker.value = value;
+                }
+            });
+
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / (PIXEL_SIZE * currentZoom));
+                const y = Math.floor((e.clientY - rect.top) / (PIXEL_SIZE * currentZoom));
+
+                if (x >= 0 && x < CANVAS_SIZE && y >= 0 && y < CANVAS_SIZE) {
+                    xInput.value = x;
+                    yInput.value = y;
+                    drawPixel();
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) / (PIXEL_SIZE * currentZoom));
+                const y = Math.floor((e.clientY - rect.top) / (PIXEL_SIZE * currentZoom));
+
+                if (x >= 0 && x < CANVAS_SIZE && y >= 0 && y < CANVAS_SIZE) {
+                    document.getElementById('coordsDisplay').textContent = `X: ${x}, Y: ${y} - Click to draw`;
+                }
+            });
+        }
+
+        async function loadCanvas() {
+            showLoading(true);
+
+            try {
+                if (!userData) {
+                    await loadUserInfo();
+                }
+
+                const user = getUserData();
+                if (!user) {
+                    showNotification('Informations utilisateur indisponibles. Veuillez rafraîchir la page.', 'error');
+                    showLoading(false);
+                    return;
+                }
+
+                const sessionId = getSessionId();
+                const token = 'canvas-state-' + Date.now();
+
+                const response = await fetch(`${GATEWAY_BASE_URL}/web/interactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionId || ''
+                    },
+                    body: JSON.stringify({
+                        command: 'canvas_state',
+                        token: token,
+                        application_id: 'web-client',
+                        user_id: user.id,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar
+                        }
+                    })
+                });
+
+                if (response.status === 202) {
+                    await pollForCanvasStateResult(token);
+                } else if (response.ok) {
+                    const data = await response.json();
+                    console.log('Canvas state response:', data);
+                    if (data.status === 'success') {
+                        await handleCanvasStateResponse(data);
+                    } else if (data.status === 'processing') {
+                        await pollForCanvasStateResult(token);
+                    } else {
+                        console.error('Unexpected status in canvas response:', data.status);
+                        showNotification('Failed to load canvas: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('Failed to load canvas:', response.status, errorText);
+                    throw new Error('Failed to load canvas: ' + response.status);
+                }
+            } catch (error) {
+                console.error('Error loading canvas:', error);
+                showNotification('Failed to load canvas', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function pollForCanvasStateResult(token) {
+            const maxAttempts = 30;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                try {
+                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    if (response.status === 200) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            await handleCanvasStateResponse(data);
+                            return;
+                        } else if (data.status === 'error') {
+                            showNotification(data.message || 'Failed to load canvas', 'error');
+                            return;
+                        }
+                    } else if (response.status !== 202) {
+                        break;
+                    }
+                } catch (error) {
+                    console.error('Error polling for canvas state:', error);
+                    break;
+                }
+            }
+            showNotification('Timeout waiting for canvas state', 'error');
+        }
+
+        async function handleCanvasStateResponse(data) {
+            console.log('Canvas state response data:', data);
+            const canvasPayload = data.canvas || data.data?.canvas || data.data?.data?.canvas;
+
+            if (!canvasPayload) {
+                console.error('No canvas payload found in response:', data);
+                throw new Error('No canvas payload in response');
+            }
+
+            let pixels = canvasPayload.pixels;
+
+            if (!pixels && typeof canvasPayload.state_json === 'string') {
+                try {
+                    pixels = JSON.parse(canvasPayload.state_json);
+                } catch (error) {
+                    console.error('Failed to parse canvas JSON:', error);
+                }
+            }
+
+            if (!pixels || !Array.isArray(pixels)) {
+                console.error('Invalid canvas data in response:', canvasPayload);
+                throw new Error('Invalid canvas data');
+            }
+
+            const normalized = [];
+            for (let y = 0; y < CANVAS_SIZE; y++) {
+                const rowData = pixels[y] || [];
+                const row = [];
+                for (let x = 0; x < CANVAS_SIZE; x++) {
+                    row.push(normalizeColorValue(rowData[x] || DEFAULT_COLOR));
+                }
+                normalized.push(row);
+            }
+
+            canvasData = normalized;
+            renderCanvas();
+
+            const statsPayload = canvasPayload.stats || data.stats || data.data?.stats || null;
+            if (statsPayload) {
+                updateStatsDisplay(statsPayload);
+            } else {
+                await loadStats();
+            }
+
+            showNotification('Canvas chargé avec succès !', 'success');
+        }
+
+        async function handleSnapshotResponse(data) {
+            console.log('Snapshot response data:', data);
+
+            let imageUrl = null;
+
+            const embeds = data.data?.embeds || data.data?.data?.embeds || data.embeds || [];
+            if (embeds.length > 0 && embeds[0].image?.url) {
+                imageUrl = embeds[0].image.url;
+            }
+
+            if (!imageUrl) {
+                imageUrl = data.image_url || data.data?.image_url || data.data?.data?.image_url;
+            }
+
+            if (!imageUrl) {
+                imageUrl = data.url || data.data?.url;
+            }
+
+            if (imageUrl) {
+                console.log('Found image URL:', imageUrl);
+                await loadCanvasImage(imageUrl);
+                loadStats();
+                showNotification('Canvas loaded successfully!', 'success');
+            } else {
+                console.error('No image URL found in response:', data);
+                throw new Error('No image URL in snapshot response');
+            }
+        }
+
+        async function loadCanvasImage(imageUrl) {
+            return new Promise((resolve, reject) => {
+                console.log('Loading canvas image from:', imageUrl);
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    console.log('Image loaded, dimensions:', img.width, 'x', img.height);
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = CANVAS_SIZE;
+                    tempCanvas.height = CANVAS_SIZE;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(img, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+                    canvasData = [];
+                    for (let y = 0; y < CANVAS_SIZE; y++) {
+                        const row = [];
+                        for (let x = 0; x < CANVAS_SIZE; x++) {
+                            const pixelData = tempCtx.getImageData(x, y, 1, 1).data;
+                            const hex = '#' + [pixelData[0], pixelData[1], pixelData[2]]
+                                .map(c => c.toString(16).padStart(2, '0').toUpperCase())
+                                .join('');
+                            row.push(hex);
+                        }
+                        canvasData.push(row);
+                    }
+                    console.log('Canvas data loaded, pixels:', canvasData.length * CANVAS_SIZE);
+                    renderCanvas();
+                    resolve();
+                };
+                img.onerror = (error) => {
+                    console.error('Error loading image:', error, imageUrl);
+                    reject(new Error('Failed to load canvas image: ' + imageUrl));
+                };
+                img.src = imageUrl;
+            });
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < CANVAS_SIZE; y++) {
+                for (let x = 0; x < CANVAS_SIZE; x++) {
+                    const color = canvasData[y]?.[x] || '#FFFFFF';
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+                }
+            }
+
+            ctx.strokeStyle = '#00000010';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= CANVAS_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * PIXEL_SIZE, 0);
+                ctx.lineTo(i * PIXEL_SIZE, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * PIXEL_SIZE);
+                ctx.lineTo(canvas.width, i * PIXEL_SIZE);
+                ctx.stroke();
+            }
+        }
+
+        async function drawPixel() {
+            const x = parseInt(xInput.value);
+            const y = parseInt(yInput.value);
+            const color = selectedColor;
+
+            if (x < 0 || x >= CANVAS_SIZE || y < 0 || y >= CANVAS_SIZE) {
+                showNotification('Invalid coordinates!', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const sessionId = getSessionId();
+                if (!sessionId) {
+                    showNotification('Not authenticated. Please login.', 'error');
+                    showLoading(false);
+                    return;
+                }
+
+                if (!userData) {
+                    await loadUserInfo();
+                }
+
+                const user = getUserData();
+                if (!user) {
+                    showNotification('User information not available. Please refresh the page.', 'error');
+                    showLoading(false);
+                    return;
+                }
+
+                const token = 'draw-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                const response = await fetch(`${GATEWAY_BASE_URL}/web/interactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionId
+                    },
+                    body: JSON.stringify({
+                        command: 'draw',
+                        token: token,
+                        application_id: 'web-client',
+                        user_id: user.id,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar
+                        },
+                        options: [
+                            { name: 'x', value: x },
+                            { name: 'y', value: y },
+                            { name: 'color', value: color }
+                        ]
+                    })
+                });
+
+                if (response.status === 202) {
+                    const result = await pollForDrawResult(token);
+                    if (result && result.success) {
+                        if (!canvasData[y]) canvasData[y] = [];
+                        canvasData[y][x] = color;
+                        renderCanvas();
+                        showNotification(`Pixel drawn at (${x}, ${y})!`, 'success');
+                        addActivity(`Drew ${color} at (${x}, ${y})`);
+                    }
+                } else if (response.status === 429) {
+                    showNotification('Rate limit exceeded! Please wait.', 'error');
+                } else if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        if (!canvasData[y]) canvasData[y] = [];
+                        canvasData[y][x] = color;
+                        renderCanvas();
+                        showNotification(`Pixel drawn at (${x}, ${y})!`, 'success');
+                        addActivity(`Drew ${color} at (${x}, ${y})`);
+                    } else {
+                        showNotification(data.message || 'Failed to draw pixel', 'error');
+                    }
+                } else {
+                    const error = await response.json().catch(() => ({}));
+                    showNotification(error.error || error.message || 'Failed to draw pixel', 'error');
+                }
+            } catch (error) {
+                console.error('Error drawing pixel:', error);
+                showNotification('Connection error', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                if (!userData) {
+                    await loadUserInfo();
+                }
+
+                const user = getUserData();
+                if (!user) {
+                    console.warn('User data not available for stats');
+                    return;
+                }
+
+                const token = 'stats-' + Date.now();
+                const response = await fetch(`${GATEWAY_BASE_URL}/web/interactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        command: 'stats',
+                        token: token,
+                        application_id: 'web-client',
+                        user_id: user.id,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar
+                        }
+                    })
+                });
+
+                if (response.status === 202) {
+                    await pollForStatsResult(token);
+                } else if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        parseStatsFromResponse(data);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function pollForStatsResult(token) {
+            const maxAttempts = 10;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                try {
+                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    if (response.status === 200) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            parseStatsFromResponse(data);
+                            return;
+                        }
+                    } else if (response.status !== 202) {
+                        break;
+                    }
+                } catch (error) {
+                    console.error('Error polling for stats:', error);
+                    break;
+                }
+            }
+        }
+
+        function updateStatsDisplay(stats) {
+            if (!stats) {
+                return;
+            }
+
+            const totalPixelsEl = document.getElementById('totalPixels');
+            const contributorsEl = document.getElementById('contributors');
+
+            if (totalPixelsEl && typeof stats.total_pixels !== 'undefined') {
+                totalPixelsEl.textContent = stats.total_pixels;
+            }
+
+            if (contributorsEl && typeof stats.unique_contributors !== 'undefined') {
+                contributorsEl.textContent = stats.unique_contributors;
+            }
+        }
+
+        function parseStatsFromResponse(data) {
+            console.log('Parsing stats from response:', data);
+            const statsPayload = data.stats || data.canvas?.stats || data.data?.stats || null;
+            if (statsPayload) {
+                updateStatsDisplay(statsPayload);
+                return;
+            }
+
+            const embeds = data.data?.embeds || data.data?.data?.embeds || data.embeds || [];
+            if (embeds.length > 0 && embeds[0].fields) {
+                const fields = embeds[0].fields;
+                console.log('Stats fields:', fields);
+                let totalPixels = 0;
+                let contributors = 0;
+
+                for (const field of fields) {
+                    const name = field.name?.toLowerCase() || '';
+                    const value = field.value || '';
+                    console.log('Processing field:', name, value);
+
+                    // Try different patterns to match stats
+                    if (name.includes('total pixels') || name.includes('pixels drawn') || name.includes('pixels')) {
+                        const match = value.match(/\d+/);
+                        totalPixels = match ? parseInt(match[0]) : 0;
+                    } else if (name.includes('contributors') || name.includes('artists') || name.includes('unique')) {
+                        const match = value.match(/\d+/);
+                        contributors = match ? parseInt(match[0]) : 0;
+                    }
+                }
+
+                console.log('Parsed stats - Total pixels:', totalPixels, 'Contributors:', contributors);
+
+                const totalPixelsEl = document.getElementById('totalPixels');
+                const contributorsEl = document.getElementById('contributors');
+
+                if (totalPixelsEl) {
+                    totalPixelsEl.textContent = totalPixels;
+                } else {
+                    console.warn('totalPixels element not found');
+                }
+
+                if (contributorsEl) {
+                    contributorsEl.textContent = contributors;
+                } else {
+                    console.warn('contributors element not found');
+                }
+            } else {
+                console.warn('No embeds or fields found in stats response');
+            }
+        }
+
+        async function pollForDrawResult(token) {
+            const maxAttempts = 10;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                try {
+                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    if (response.status === 200) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            return { success: true };
+                        } else if (data.status === 'error') {
+                            showNotification(data.message || 'Failed to draw pixel', 'error');
+                            return { success: false };
+                        }
+                    } else if (response.status !== 202) {
+                        break;
+                    }
+                } catch (error) {
+                    console.error('Error polling for draw result:', error);
+                    break;
+                }
+            }
+            return { success: false };
+        }
+
+        async function takeSnapshot() {
+            showLoading(true);
+
+            try {
+                if (!userData) {
+                    await loadUserInfo();
+                }
+
+                const user = getUserData();
+                if (!user) {
+                    showNotification('User information not available. Please refresh the page.', 'error');
+                    showLoading(false);
+                    return;
+                }
+
+                const sessionId = getSessionId();
+                const token = 'snapshot-' + Date.now();
+                const response = await fetch(`${GATEWAY_BASE_URL}/web/interactions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionId || ''
+                    },
+                    body: JSON.stringify({
+                        command: 'snapshot',
+                        token: token,
+                        application_id: 'web-client',
+                        user_id: user.id,
+                        user: {
+                            id: user.id,
+                            username: user.username,
+                            avatar: user.avatar
+                        }
+                    })
+                });
+
+                if (response.status === 202) {
+                    await pollForSnapshotResult(token);
+                } else if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        await handleSnapshotResponse(data);
+                        showNotification('Snapshot created and canvas updated!', 'success');
+                    } else if (data.status === 'processing') {
+                        await pollForSnapshotResult(token);
+                    } else {
+                        showNotification(data.message || 'Failed to create snapshot', 'error');
+                    }
+                } else {
+                    const error = await response.json().catch(() => ({}));
+                    showNotification(error.error || error.message || 'Failed to create snapshot', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating snapshot:', error);
+                showNotification('Connection error', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function pollForSnapshotResult(token) {
+            const maxAttempts = 30;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                try {
+                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.status === 200) {
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            await handleSnapshotResponse(data);
+                            showNotification('Snapshot created and canvas updated!', 'success');
+                            return;
+                        }
+                    } else if (response.status !== 202) {
+                        break;
+                    }
+                } catch (error) {
+                    console.error('Error polling for snapshot:', error);
+                    break;
+                }
+            }
+            showNotification('Timeout waiting for snapshot', 'error');
+        }
+
+        function exportCanvas() {
+            const link = document.createElement('a');
+            link.download = `canvas-${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        function setColor(color) {
+            selectedColor = color;
+            colorPicker.value = color;
+            colorInput.value = color;
+
+            document.querySelectorAll('.preset-color').forEach(el => {
+                el.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function zoomIn() {
+            currentZoom = Math.min(currentZoom + 0.5, 3);
+            updateZoom();
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(currentZoom - 0.5, 0.5);
+            updateZoom();
+        }
+
+        function updateZoom() {
+            canvas.style.transform = `scale(${currentZoom})`;
+            document.getElementById('zoomLevel').textContent = `${Math.round(currentZoom * 100)}%`;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function addActivity(message) {
+            const feed = document.getElementById('activityFeed');
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            item.innerHTML = `
+                <div>${message}</div>
+                <div class="time">${new Date().toLocaleTimeString()}</div>
+            `;
+
+            feed.insertBefore(item, feed.firstChild);
+
+            while (feed.children.length > 10) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        function getSessionId() {
+            // Priority: URL parameter > localStorage > global variable
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlSession = urlParams.get('session');
+
+            if (urlSession) {
+                // Save URL session to localStorage for persistence
+                localStorage.setItem('guidon_session', urlSession);
+                return urlSession;
+            }
+
+            // Try localStorage
+            const storedSession = localStorage.getItem('guidon_session');
+            if (storedSession) {
+                return storedSession;
+            }
+
+            // Fallback to global variable (from server)
+            if (typeof SESSION_ID !== 'undefined' && SESSION_ID) {
+                localStorage.setItem('guidon_session', SESSION_ID);
+                return SESSION_ID;
+            }
+
+            return '';
+        }
+
+        async function verifySession(sessionId) {
+            try {
+                const response = await fetch(`${GATEWAY_BASE_URL}/auth/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.valid === true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Error verifying session:', error);
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>
