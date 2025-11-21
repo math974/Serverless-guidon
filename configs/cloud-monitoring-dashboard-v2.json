@@ -1,6 +1,14 @@
 {
   "displayName": "Discord Bot - Observability Dashboard V2",
-  "etag": "8316db0b238f13c7769ada96bbfa7c7c",
+  "etag": "4292b528d658b1c0a173b00d49c5a49a",
+  "dashboardFilters": [
+    {
+      "filterType": "RESOURCE_LABEL",
+      "labelKey": "service_name",
+      "templateVariable": "service_filter",
+      "stringValue": ""
+    }
+  ],
   "mosaicLayout": {
     "columns": 48,
     "tiles": [
@@ -431,9 +439,21 @@
         }
       },
       {
+        "height": 8,
+        "width": 48,
+        "yPos": 82,
+        "widget": {
+          "title": "🔍 Filtre par service - Logs",
+          "text": {
+            "content": "**📋 Filtrez les logs par service** :\n\n**Méthode 1 - Dans les widgets ci-dessous** : Cliquez sur le widget de logs → \"Edit filter\" → Ajoutez `AND resource.labels.service_name=\"nom-du-service\"`\n\n**Méthode 2 - Liens rapides Logs Explorer** (filtre automatique) :\n\n**🔴 Logs ERROR par service** :\n- [proxy](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22proxy%22%20AND%20severity%3D%22ERROR%22) | [processor-base](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-base%22%20AND%20severity%3D%22ERROR%22) | [processor-art](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-art%22%20AND%20severity%3D%22ERROR%22) | [user-manager](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22user-manager%22%20AND%20severity%3D%22ERROR%22) | [web-frontend](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22web-frontend%22%20AND%20severity%3D%22ERROR%22)\n\n**⚠️ Logs WARNING par service** :\n- [proxy](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22proxy%22%20AND%20severity%3D%22WARNING%22) | [processor-base](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-base%22%20AND%20severity%3D%22WARNING%22) | [processor-art](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-art%22%20AND%20severity%3D%22WARNING%22) | [user-manager](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22user-manager%22%20AND%20severity%3D%22WARNING%22)\n\n**📋 Tous les logs par service** :\n- [proxy](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22proxy%22) | [processor-base](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-base%22) | [processor-art](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22processor-art%22) | [user-manager](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20resource.labels.service_name%3D%22user-manager%22)",
+            "format": "MARKDOWN"
+          }
+        }
+      },
+      {
         "height": 16,
         "width": 24,
-        "yPos": 82,
+        "yPos": 90,
         "widget": {
           "title": "🔎 Logs par correlation_id",
           "logsPanel": {
@@ -445,11 +465,11 @@
         "height": 16,
         "width": 24,
         "xPos": 24,
-        "yPos": 82,
+        "yPos": 90,
         "widget": {
           "title": "⚠️ Logs WARNING",
           "logsPanel": {
-            "filter": "jsonPayload.severity=\"WARNING\"\nOR severity=\"WARNING\"",
+            "filter": "resource.type=\"cloud_run_revision\"\n(jsonPayload.severity=\"WARNING\"\nOR severity=\"WARNING\")",
             "resourceNames": [
               "projects/serverless-ejguidon-dev/locations/global/logScopes/_Default"
             ]
