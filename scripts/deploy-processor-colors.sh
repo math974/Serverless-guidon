@@ -24,7 +24,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=processor_colors_handler \
   --trigger-topic="${TOPIC}" \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --set-secrets="DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest" \
@@ -33,7 +33,3 @@ gcloud functions deploy "${SERVICE_NAME}" \
   2>&1 | grep -v "No change" || true
 
 echo "Deployed (triggered by Pub/Sub topic: ${TOPIC})"
-
-# Note: Service is public (--allow-unauthenticated) for now
-# TODO: Switch to private and grant Eventarc permissions
-

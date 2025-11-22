@@ -30,7 +30,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=canvas_service \
   --trigger-http \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --timeout=540s \
@@ -40,9 +40,6 @@ gcloud functions deploy "${SERVICE_NAME}" \
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "Deployed: ${SERVICE_URL}"
-
-# Note: Service is public (--allow-unauthenticated) for now
-# TODO: Switch to private and grant Cloud Functions service account permissions
 
 echo ""
 echo "Available endpoints:"

@@ -23,7 +23,12 @@ class UserManagementClient:
         )
         if not env_url:
             raise ValueError("USER_MANAGER_URL is not configured")
-        self.base_url = env_url.rstrip('/')
+        env_url = env_url.rstrip('/')
+        if not env_url.startswith('http://') and not env_url.startswith('https://'):
+            env_url = f"https://{env_url}"
+        elif env_url.startswith('http://'):
+            env_url = env_url.replace('http://', 'https://', 1)
+        self.base_url = env_url
         self._auth_request = google_requests.Request()
 
     def _build_headers(self, correlation_id: Optional[str] = None) -> Dict[str, str]:

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from shared.observability import init_observability, traced_function
 from shared.correlation import with_correlation
+from shared.auth_utils import verify_service_auth
 from canvas_manager import CanvasManager
 
 logger, tracing = init_observability('canvas-service', app=None)
@@ -52,6 +53,20 @@ def canvas_service(request: Request):
         # --- Health check ---
         if path == '/health' and method == 'GET':
             return health_handler(request, correlation_id)
+
+        is_valid, error_msg = verify_service_auth(request, expected_audience=None, logger_instance=logger)
+        if not is_valid:
+            logger.warning(
+                "Authentication failed",
+                correlation_id=correlation_id,
+                path=path,
+                error=error_msg
+            )
+            response = jsonify({
+                'error': 'Unauthorized',
+                'message': error_msg or 'Authentication required'
+            }), 401
+            return add_cors_headers(response)
 
         # --- Draw pixel ---
         if path == '/canvas/draw' and method == 'POST':

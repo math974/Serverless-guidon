@@ -67,7 +67,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=proxy_handler \
   --trigger-http \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --set-secrets="DISCORD_PUBLIC_KEY=DISCORD_PUBLIC_KEY:latest,DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest,DISCORD_APPLICATION_ID=DISCORD_APPLICATION_ID:latest" \
@@ -78,4 +78,29 @@ gcloud functions deploy "${SERVICE_NAME}" \
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "Deployed: ${SERVICE_URL}"
+
+# Grant permissions to invoke user-manager
+if [ ! -z "${USER_MANAGER_URL:-}" ]; then
+  echo "Granting permission to invoke user-manager..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
+
+# Grant API Gateway permission to invoke proxy
+echo "Granting API Gateway permission to invoke proxy..."
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)" 2>/dev/null || echo "")
+if [ ! -z "${PROJECT_NUMBER}" ]; then
+  # API Gateway uses the Cloud Services service account by default
+  GATEWAY_SA="${PROJECT_NUMBER}@cloudservices.gserviceaccount.com"
+  echo "  Using service account: ${GATEWAY_SA}"
+  gcloud functions add-invoker-policy-binding "${SERVICE_NAME}" \
+    --gen2 \
+    --region="${REGION}" \
+    --member="serviceAccount:${GATEWAY_SA}" \
+    --project="${PROJECT_ID}" \
+    2>&1 | grep -v "already has role" || echo "  ✓ API Gateway already has permission"
+  echo "  ✓ Granted API Gateway permission to invoke proxy"
+  echo ""
+  echo "Note: If you use a custom service account for API Gateway, update this script"
+  echo "      to use that service account instead."
+fi
 

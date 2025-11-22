@@ -33,7 +33,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=processor_draw_handler \
   --trigger-topic="${TOPIC}" \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --set-secrets="DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest" \
@@ -43,6 +43,13 @@ gcloud functions deploy "${SERVICE_NAME}" \
 
 echo "Deployed (triggered by Pub/Sub topic: ${TOPIC})"
 
-# Note: Service is public (--allow-unauthenticated) for now
-# TODO: Switch to private and grant Eventarc permissions
+# Grant permissions to invoke user-manager and canvas-service
+if [ ! -z "${USER_MANAGER_URL:-}" ]; then
+  echo "Granting permission to invoke user-manager..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
 
+if [ ! -z "${CANVAS_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke canvas-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "canvas-service" "${PROJECT_ID}" "${REGION}" || true
+fi

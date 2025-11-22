@@ -1,7 +1,105 @@
 """Shared utilities for processor services."""
 import os
 import requests
-from typing import Optional
+from typing import Optional, Dict
+
+def get_auth_token(audience: str, logger=None) -> Optional[str]:
+    """Get Google Cloud identity token for service-to-service authentication.
+
+    Args:
+        audience: The target service URL (audience for the token)
+        logger: Optional logger instance for error logging
+
+    Returns:
+        Identity token string or None if failed
+    """
+    if not audience:
+        if logger:
+            logger.warning("Audience URL not provided for identity token")
+        return None
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        request_session = google_requests.Request()
+        token = id_token.fetch_id_token(request_session, audience)
+        return token
+    except Exception as e:
+        if logger:
+            logger.warning(
+                "Failed to get identity token",
+                error=e,
+                audience=audience
+            )
+        return None
+
+
+def verify_auth_token(request, expected_audience: str = None, logger=None) -> tuple[bool, Optional[str]]:
+    """Verify Google Cloud identity token from request headers.
+
+    Args:
+        request: Flask request object
+        expected_audience: Optional expected audience (service URL)
+        logger: Optional logger instance for error logging
+
+    Returns:
+        Tuple of (is_valid: bool, error_message: str or None)
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return False, "Missing or invalid Authorization header"
+
+    token = auth_header[7:]  # Remove 'Bearer ' prefix
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        request_session = google_requests.Request()
+
+        # Verify token
+        claims = id_token.verify_token(token, request_session, audience=expected_audience)
+
+        if logger:
+            logger.debug(
+                "Token verified successfully",
+                email=claims.get('email'),
+                audience=claims.get('aud')
+            )
+
+        return True, None
+    except ValueError as e:
+        if logger:
+            logger.warning("Invalid token", error=e)
+        return False, f"Invalid token: {str(e)}"
+    except Exception as e:
+        if logger:
+            logger.error("Error verifying token", error=e)
+        return False, f"Token verification error: {str(e)}"
+
+
+def get_authenticated_headers(audience: str, correlation_id: Optional[str] = None, logger=None) -> Dict[str, str]:
+    """Get headers with authentication token for service-to-service calls.
+
+    Args:
+        audience: Target service URL (audience for the token)
+        correlation_id: Optional correlation ID for logging
+        logger: Optional logger instance
+
+    Returns:
+        Dictionary with headers including Authorization
+    """
+    headers = {}
+    if correlation_id:
+        headers['X-Correlation-ID'] = correlation_id
+
+    auth_token = get_auth_token(audience, logger)
+    if auth_token:
+        headers['Authorization'] = f'Bearer {auth_token}'
+
+    return headers
+
 
 def send_discord_webhook_direct(
     interaction_token: str,
@@ -141,28 +239,14 @@ def increment_user_usage_async(
     if not user_manager_url:
         return
 
-    # Get Google Cloud identity token for authentication
-    auth_token = None
-    try:
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        request_session = google_requests.Request()
-        target_audience = user_manager_url
-        auth_token = id_token.fetch_id_token(request_session, target_audience)
-    except Exception as e:
-        if logger:
-            logger.warning(
-                "Failed to get identity token for user-manager",
-                error=e,
-                correlation_id=correlation_id
-            )
-        return
+    user_manager_url = user_manager_url.rstrip('/')
+    if not user_manager_url.startswith('http://') and not user_manager_url.startswith('https://'):
+        user_manager_url = f"https://{user_manager_url}"
+    elif user_manager_url.startswith('http://'):
+        user_manager_url = user_manager_url.replace('http://', 'https://', 1)
 
-    headers = {}
-    if correlation_id:
-        headers['X-Correlation-ID'] = correlation_id
-    if auth_token:
-        headers['Authorization'] = f'Bearer {auth_token}'
+    headers = get_authenticated_headers(user_manager_url, correlation_id, logger)
+    headers['Content-Type'] = 'application/json'
 
     try:
         response = requests.post(

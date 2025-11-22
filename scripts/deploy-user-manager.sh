@@ -32,7 +32,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=user_management_handler \
   --trigger-http \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --timeout=300s \
@@ -43,6 +43,10 @@ SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REG
 
 echo "Deployed: ${SERVICE_URL}"
 
-# Note: Service is public (--allow-unauthenticated) for now
-# TODO: Switch to private and grant Cloud Functions service account permissions
+# Grant permissions to invoke canvas-service (if user-manager calls it)
+CANVAS_SERVICE_URL=$(gcloud functions describe canvas-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+if [ ! -z "${CANVAS_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke canvas-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "canvas-service" "${PROJECT_ID}" "${REGION}" || true
+fi
 

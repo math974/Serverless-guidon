@@ -71,5 +71,20 @@ gcloud functions deploy "${SERVICE_NAME}" \
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "Deployed: ${SERVICE_URL}"
+
+# Grant permissions to invoke user-manager and canvas-service
+USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+CANVAS_SERVICE_URL=$(gcloud functions describe canvas-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+
+if [ ! -z "${USER_MANAGER_URL:-}" ]; then
+  echo "Granting permission to invoke user-manager..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
+
+if [ ! -z "${CANVAS_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke canvas-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "canvas-service" "${PROJECT_ID}" "${REGION}" || true
+fi
+
 echo "Note: OAuth2 accessible via Gateway. Run: make update-gateway"
 

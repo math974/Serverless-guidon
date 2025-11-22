@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from command_registry import CommandHandler  # noqa: E402
 from shared.observability import init_observability  # noqa: E402
+from shared.processor_utils import get_authenticated_headers  # noqa: E402
 
 USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
@@ -45,25 +46,6 @@ def is_admin(interaction_data: dict) -> bool:
     return False
 
 
-def get_auth_token():
-    """Get Google Cloud identity token for calling user-manager."""
-    try:
-        if not USER_MANAGER_URL:
-            logger.error("USER_MANAGER_URL not configured for identity token")
-            return None
-        from google.oauth2 import id_token
-        from google.auth.transport import requests
-
-        request_session = requests.Request()
-        target_audience = USER_MANAGER_URL
-
-        identity_token = id_token.fetch_id_token(request_session, target_audience)
-        return identity_token
-    except Exception as e:
-        logger.error("Failed to get identity token", error=e)
-    return None
-
-
 def call_user_manager(endpoint: str, method: str = 'GET', data: dict = None, correlation_id: str = None) -> dict:
     """Call user-manager service."""
     if not USER_MANAGER_URL:
@@ -71,14 +53,8 @@ def call_user_manager(endpoint: str, method: str = 'GET', data: dict = None, cor
         return None
 
     url = f"{USER_MANAGER_URL}{endpoint}"
-    headers = {'Content-Type': 'application/json'}
-    if correlation_id:
-        headers['X-Correlation-ID'] = correlation_id
-
-    # Add authentication token
-    auth_token = get_auth_token()
-    if auth_token:
-        headers['Authorization'] = f'Bearer {auth_token}'
+    headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
+    headers['Content-Type'] = 'application/json'
 
     try:
         if method == 'GET':

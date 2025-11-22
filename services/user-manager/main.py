@@ -2,10 +2,12 @@
 User Management Service with Functions Framework for Cloud Functions Gen2
 Handles user CRUD, rate limiting, bans, premium, stats
 """
+import os
 import functions_framework
 from flask import Request, jsonify
 from shared.correlation import with_correlation
 from shared.observability import init_observability, traced_function
+from shared.auth_utils import verify_service_auth
 from cache import cache
 from handlers import handle_users, handle_rate_limit, handle_stats
 
@@ -33,10 +35,24 @@ def user_management_handler(request: Request):
         headers = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
-            'Access-Control-Allow-Headers': 'Content-Type, X-Correlation-ID',
+            'Access-Control-Allow-Headers': 'Content-Type, X-Correlation-ID, Authorization',
             'Access-Control-Max-Age': '3600'
         }
         return ('', 204, headers)
+
+    if path != '/health' or method != 'GET':
+        is_valid, error_msg = verify_service_auth(request, expected_audience=None, logger_instance=logger)
+        if not is_valid:
+            logger.warning(
+                "Authentication failed",
+                correlation_id=correlation_id,
+                path=path,
+                error=error_msg
+            )
+            return jsonify({
+                'error': 'Unauthorized',
+                'message': error_msg or 'Authentication required'
+            }), 401
 
     try:
         # --- Health check ---

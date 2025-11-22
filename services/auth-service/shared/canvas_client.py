@@ -15,9 +15,16 @@ class CanvasClient:
     """Identity-token authenticated HTTP client for the canvas-service API."""
 
     def __init__(self, base_url: str = None):
-        self.base_url = base_url or CANVAS_SERVICE_URL
-        if not self.base_url:
+        service_url = base_url or CANVAS_SERVICE_URL
+        if not service_url:
             logger.warning("CANVAS_SERVICE_URL not configured")
+        else:
+            service_url = service_url.rstrip('/')
+            if not service_url.startswith('http://') and not service_url.startswith('https://'):
+                service_url = f"https://{service_url}"
+            elif service_url.startswith('http://'):
+                service_url = service_url.replace('http://', 'https://', 1)
+        self.base_url = service_url
         self._auth_request = google_requests.Request()
 
     def _build_headers(self, correlation_id: Optional[str] = None) -> Dict[str, str]:

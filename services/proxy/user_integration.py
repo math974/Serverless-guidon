@@ -3,6 +3,7 @@ import os
 import requests
 from typing import Optional, Dict, Tuple
 from shared.observability import init_observability
+from shared.processor_utils import get_authenticated_headers
 
 logger, _ = init_observability('discord-proxy', app=None)
 
@@ -11,21 +12,6 @@ USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
 # Timeout for user-manager requests (in seconds)
 USER_MANAGER_TIMEOUT = float(os.getenv('USER_MANAGER_TIMEOUT', '10'))
-
-
-def get_auth_token() -> Optional[str]:
-    """Get Google Cloud identity token for calling user-manager."""
-    if not USER_MANAGER_URL:
-        return None
-    try:
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        request_session = google_requests.Request()
-        target_audience = USER_MANAGER_URL
-        return id_token.fetch_id_token(request_session, target_audience)
-    except Exception as e:
-        logger.warning("Failed to get identity token for user-manager", error=e)
-        return None
 
 
 def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
@@ -69,12 +55,7 @@ def is_user_registered(
         return False
 
     try:
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
+        headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
 
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
@@ -127,13 +108,9 @@ def check_user_allowed(
         return True, None, None
 
     try:
-        # Get authentication token
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
+        # Get authenticated headers
+        headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
+        headers['Content-Type'] = 'application/json'
 
         # First, get user to check if banned and get premium status
         user_response = requests.get(
