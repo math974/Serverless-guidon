@@ -9,9 +9,9 @@ terraform {
       source  = "hashicorp/google-beta"
       version = ">= 5.0"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = ">= 3.0"
+    external = {
+      source  = "hashicorp/external"
+      version = ">= 2.3.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -24,6 +24,16 @@ locals {
   # Build directory where we copy source + shared folder
   build_dir       = "${path.module}/.build-${var.function_name}"
   shared_src_path = "${path.root}/../services/shared"
+  
+  # Calculate hash of source files for triggering rebuild
+  source_hash = sha256(join("", [
+    for f in fileset(var.source_dir, "**") :
+    filesha256("${var.source_dir}/${f}")
+  ]))
+  shared_hash = sha256(join("", [
+    for f in fileset(local.shared_src_path, "**") :
+    filesha256("${local.shared_src_path}/${f}")
+  ]))
 }
 
 resource "google_project_service" "apis" {
@@ -37,33 +47,20 @@ resource "google_project_service" "apis" {
   service = each.key
 }
 
-# Copy service source code and shared folder to build directory
-resource "null_resource" "prepare_source" {
-  triggers = {
-    # Trigger rebuild when source files change
-    source_hash = sha256(join("", [
-      for f in fileset(var.source_dir, "**") :
-      filesha256("${var.source_dir}/${f}")
-    ]))
-    shared_hash = sha256(join("", [
-      for f in fileset(local.shared_src_path, "**") :
-      filesha256("${local.shared_src_path}/${f}")
-    ]))
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      rm -rf "${local.build_dir}"
-      mkdir -p "${local.build_dir}"
-      cp -r "${var.source_dir}"/* "${local.build_dir}/"
-      cp -r "${local.shared_src_path}" "${local.build_dir}/shared"
-    EOT
+# Prepare source code: copy service source + shared folder to build directory
+# This runs during plan phase via external data source
+data "external" "prepare_source" {
+  program = ["bash", "${path.module}/prepare-source.sh", local.build_dir, var.source_dir, local.shared_src_path]
+  
+  query = {
+    source_hash = local.source_hash
+    shared_hash = local.shared_hash
   }
 }
 
 # Create zip archive from build directory
 data "archive_file" "source_zip" {
-  depends_on  = [null_resource.prepare_source]
+  depends_on  = [data.external.prepare_source]
   type        = "zip"
   source_dir  = local.build_dir
   output_path = "${path.module}/.archive-${var.function_name}.zip"
