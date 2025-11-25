@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/google-beta"
       version = ">= 5.0"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = ">= 2.4.0"
+    }
     archive = {
       source  = "hashicorp/archive"
       version = ">= 2.4.0"
@@ -16,7 +20,9 @@ terraform {
   }
 }
 
-locals {}
+locals {
+  minimal_source_dir = "${path.module}/.minimal-${var.function_name}"
+}
 
 resource "google_project_service" "apis" {
   for_each = toset([
@@ -31,10 +37,25 @@ resource "google_project_service" "apis" {
 
 # Note: Source code is deployed via gcloud CLI in GitHub Actions pipeline
 # Terraform creates the function with a minimal source, then gcloud CLI updates it
-# We use a static minimal-template directory for initial deployment
+# Generate minimal source with correct entry point for each function
+resource "local_file" "minimal_main_py" {
+  filename = "${local.minimal_source_dir}/main.py"
+  content  = <<-EOT
+def ${var.entry_point}(request):
+    """Minimal entry point - will be replaced by gcloud CLI deployment."""
+    return {"message": "Function deployed via Terraform, update via gcloud CLI"}, 200
+EOT
+}
+
+resource "local_file" "minimal_requirements_txt" {
+  filename = "${local.minimal_source_dir}/requirements.txt"
+  content  = "functions-framework==3.*\n"
+}
+
 data "archive_file" "minimal_source_zip" {
+  depends_on  = [local_file.minimal_main_py, local_file.minimal_requirements_txt]
   type        = "zip"
-  source_dir  = "${path.module}/minimal-template"
+  source_dir  = local.minimal_source_dir
   output_path = "${path.module}/.minimal-${var.function_name}.zip"
 }
 
