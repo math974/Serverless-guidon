@@ -9,9 +9,9 @@ terraform {
       source  = "hashicorp/google-beta"
       version = ">= 5.0"
     }
-    local = {
-      source  = "hashicorp/local"
-      version = ">= 2.4.0"
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -21,7 +21,9 @@ terraform {
 }
 
 locals {
-  minimal_source_dir = "${path.module}/.minimal-${var.function_name}"
+  # Build directory where we copy source + shared folder
+  build_dir       = "${path.module}/.build-${var.function_name}"
+  shared_src_path = "${path.root}/../services/shared"
 }
 
 resource "google_project_service" "apis" {
@@ -35,34 +37,43 @@ resource "google_project_service" "apis" {
   service = each.key
 }
 
-# Note: Source code is deployed via gcloud CLI in GitHub Actions pipeline
-# Terraform creates the function with a minimal source, then gcloud CLI updates it
-# Generate minimal source with correct entry point for each function
-resource "local_file" "minimal_main_py" {
-  filename = "${local.minimal_source_dir}/main.py"
-  content  = <<-EOT
-def ${var.entry_point}(request):
-    """Minimal entry point - will be replaced by gcloud CLI deployment."""
-    return {"message": "Function deployed via Terraform, update via gcloud CLI"}, 200
-EOT
+# Copy service source code and shared folder to build directory
+resource "null_resource" "prepare_source" {
+  triggers = {
+    # Trigger rebuild when source files change
+    source_hash = sha256(join("", [
+      for f in fileset(var.source_dir, "**") :
+      filesha256("${var.source_dir}/${f}")
+    ]))
+    shared_hash = sha256(join("", [
+      for f in fileset(local.shared_src_path, "**") :
+      filesha256("${local.shared_src_path}/${f}")
+    ]))
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      rm -rf "${local.build_dir}"
+      mkdir -p "${local.build_dir}"
+      cp -r "${var.source_dir}"/* "${local.build_dir}/"
+      cp -r "${local.shared_src_path}" "${local.build_dir}/shared"
+    EOT
+  }
 }
 
-resource "local_file" "minimal_requirements_txt" {
-  filename = "${local.minimal_source_dir}/requirements.txt"
-  content  = "functions-framework==3.*\n"
-}
-
-data "archive_file" "minimal_source_zip" {
-  depends_on  = [local_file.minimal_main_py, local_file.minimal_requirements_txt]
+# Create zip archive from build directory
+data "archive_file" "source_zip" {
+  depends_on  = [null_resource.prepare_source]
   type        = "zip"
-  source_dir  = local.minimal_source_dir
-  output_path = "${path.module}/.minimal-${var.function_name}.zip"
+  source_dir  = local.build_dir
+  output_path = "${path.module}/.archive-${var.function_name}.zip"
 }
 
-resource "google_storage_bucket_object" "minimal_archive" {
-  name   = "${var.function_name}/minimal.zip"
+# Upload zip to Cloud Storage
+resource "google_storage_bucket_object" "source_archive" {
+  name   = "${var.function_name}/source-${data.archive_file.source_zip.output_md5}.zip"
   bucket = var.bucket_name
-  source = data.archive_file.minimal_source_zip.output_path
+  source = data.archive_file.source_zip.output_path
 }
 
 resource "google_cloudfunctions2_function" "function" {
@@ -79,7 +90,7 @@ resource "google_cloudfunctions2_function" "function" {
     source {
       storage_source {
         bucket = var.bucket_name
-        object = google_storage_bucket_object.minimal_archive.name
+        object = google_storage_bucket_object.source_archive.name
       }
     }
   }
@@ -99,11 +110,7 @@ resource "google_cloudfunctions2_function" "function" {
     }
   }
 
-  depends_on = [google_project_service.apis, google_storage_bucket_object.minimal_archive]
-
-  lifecycle {
-    ignore_changes = [build_config[0].source]
-  }
+  depends_on = [google_project_service.apis, google_storage_bucket_object.source_archive]
 }
 
 resource "google_cloudfunctions2_function_iam_member" "invoker_public" {

@@ -7,11 +7,13 @@
 .terraform.lock.hcl
 crash.log
 crash.*.log
-# Generated archives
+# Generated archives and build directories
 .minimal-*.zip
+.archive-*.zip
 *.zip
-# Minimal source directories (legacy)
+# Build directories
 .minimal-*/
+.build-*/
 
 # Google Cloud
 gcloud-service-account.json
