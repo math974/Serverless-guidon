@@ -24,7 +24,7 @@ locals {
   # Build directory where we copy source + shared folder
   build_dir       = "${path.module}/.build-${var.function_name}"
   shared_src_path = "${path.root}/../services/shared"
-  
+
   # Calculate hash of source files for triggering rebuild
   source_hash = sha256(join("", [
     for f in fileset(var.source_dir, "**") :
@@ -51,7 +51,7 @@ resource "google_project_service" "apis" {
 # This runs during plan phase via external data source
 data "external" "prepare_source" {
   program = ["bash", "${path.module}/prepare-source.sh", local.build_dir, var.source_dir, local.shared_src_path]
-  
+
   query = {
     source_hash = local.source_hash
     shared_hash = local.shared_hash
