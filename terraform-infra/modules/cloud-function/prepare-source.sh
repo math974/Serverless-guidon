@@ -13,7 +13,8 @@ mkdir -p "$BUILD_DIR"
 # Copy service source
 cp -r "$SOURCE_DIR"/* "$BUILD_DIR/"
 
-# Copy shared folder
+# Remove existing shared folder if present, then copy the centralized one
+rm -rf "$BUILD_DIR/shared"
 cp -r "$SHARED_PATH" "$BUILD_DIR/shared"
 
 # Return JSON with build_dir path for terraform
