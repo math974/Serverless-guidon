@@ -1,0 +1,34 @@
+{
+  "bucket": {
+    "name": "discord-canvas-snapshots",
+    "location": "europe-west1",
+    "storage_class": "STANDARD",
+    "description": "GCS bucket for storing canvas snapshot images"
+  },
+  "cors": {
+    "enabled": true,
+    "config": [
+      {
+        "origin": ["*"],
+        "method": ["GET", "HEAD"],
+        "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+        "maxAgeSeconds": 3600
+      }
+    ]
+  },
+  "lifecycle": {
+    "rules": [
+      {
+        "action": {
+          "type": "Delete"
+        },
+        "condition": {
+          "age": 90,
+          "matchesPrefix": ["snapshots/"]
+        },
+        "description": "Delete snapshots older than 90 days"
+      }
+    ]
+  }
+}
+

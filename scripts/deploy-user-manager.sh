@@ -10,6 +10,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=user-manager}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/user-manager}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -32,13 +33,22 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=user_management_handler \
   --trigger-http \
+  --no-allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --timeout=300s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "Deployed: ${SERVICE_URL}"
+
+# Grant permissions to invoke canvas-service (if user-manager calls it)
+CANVAS_SERVICE_URL=$(gcloud functions describe canvas-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+if [ ! -z "${CANVAS_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke canvas-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "canvas-service" "${PROJECT_ID}" "${REGION}" || true
+fi
 

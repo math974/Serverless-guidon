@@ -11,11 +11,16 @@ set -euo pipefail
 echo "Setting up Pub/Sub topics for Discord bot..."
 echo "Project: ${PROJECT_ID}"
 
-# Topics
+# Topics - Base topics and microservices topics
 TOPICS=(
-    "discord-interactions"
-    "discord-commands-base"
-    "discord-commands-art"
+    "interactions"
+    "commands-base"
+    "commands-draw"
+    "commands-snapshot"
+    "commands-canvas-state"
+    "commands-stats"
+    "commands-colors"
+    "commands-pixel-info"
 )
 
 # Create topics
@@ -33,8 +38,13 @@ echo "Note: With Cloud Functions Gen2, subscriptions are created AUTOMATICALLY"
 echo "   when you deploy functions with --trigger-topic."
 echo ""
 echo "   The following functions will auto-subscribe:"
-echo "   • processor-base → subscribes to: discord-commands-base"
-echo "   • processor-art → subscribes to: discord-commands-art"
+echo "   • processor-base → subscribes to: commands-base"
+echo "   • processor-draw → subscribes to: commands-draw"
+echo "   • processor-snapshot → subscribes to: commands-snapshot"
+echo "   • processor-canvas-state → subscribes to: commands-canvas-state"
+echo "   • processor-stats → subscribes to: commands-stats"
+echo "   • processor-colors → subscribes to: commands-colors"
+echo "   • processor-pixel-info → subscribes to: commands-pixel-info"
 echo ""
 echo "   No manual subscription creation needed!"
 

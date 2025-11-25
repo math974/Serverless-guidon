@@ -298,3 +298,62 @@ def create_user_thumbnail(avatar_url: str) -> Dict[str, str]:
     """
     return {'url': avatar_url}
 
+
+# Canvas constants
+CANVAS_SIZE = 48  # Canvas size (48x48 pixels)
+
+# Named color mappings
+COLOR_NAMES = {
+    'red': '#FF0000', 'green': '#00FF00', 'blue': '#0000FF', 'yellow': '#FFFF00',
+    'orange': '#FFA500', 'purple': '#800080', 'pink': '#FFC0CB', 'brown': '#A52A2A',
+    'black': '#000000', 'white': '#FFFFFF', 'gray': '#808080', 'grey': '#808080',
+    'cyan': '#00FFFF', 'magenta': '#FF00FF', 'lime': '#00FF00', 'navy': '#000080',
+    'teal': '#008080', 'maroon': '#800000', 'olive': '#808000', 'silver': '#C0C0C0',
+    'gold': '#FFD700', 'coral': '#FF7F50', 'salmon': '#FA8072', 'khaki': '#F0E68C',
+    'violet': '#EE82EE', 'indigo': '#4B0082', 'turquoise': '#40E0D0', 'crimson': '#DC143C'
+}
+
+
+def extract_options(interaction: Optional[dict]) -> Dict[str, Any]:
+    """Extract options from Discord interaction.
+
+    Args:
+        interaction: Discord interaction dict
+
+    Returns:
+        Dict mapping option names to values
+    """
+    options = {}
+    if not interaction:
+        return options
+    for option in interaction.get('data', {}).get('options', []):
+        options[option['name']] = option.get('value')
+    return options
+
+
+def rate_limit_embed(result: Dict[str, Any], command_label: str) -> dict:
+    """Create a rate limit exceeded embed.
+
+    Args:
+        result: Rate limit result dict with 'reset_in', 'remaining', 'max' keys
+        command_label: Name of the command (e.g., 'draw', 'snapshot')
+
+    Returns:
+        Discord interaction response dict with warning embed
+    """
+    reset_time = result.get('reset_in', 0)
+    minutes = reset_time // 60
+    seconds = reset_time % 60
+    time_str = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
+    return create_warning_embed(
+        title='Rate Limit Exceeded',
+        description=f'You have reached the maximum limit for `{command_label}` commands.\n\n**Please wait:** {time_str}',
+        fields=[{
+            'name': 'Current Status',
+            'value': f'**Remaining:** {result.get("remaining", 0)}/{result.get("max", 0)}\n**Reset in:** {time_str}',
+            'inline': False
+        }],
+        footer={'text': 'Tip: Premium users enjoy larger rate limits'},
+        ephemeral=True
+    )
+

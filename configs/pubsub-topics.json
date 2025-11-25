@@ -1,0 +1,37 @@
+{
+  "topics": [
+    {
+      "name": "interactions",
+      "description": "Topic for all Discord and Web interactions"
+    },
+    {
+      "name": "commands-base",
+      "description": "Topic for base commands (ping, hello, help)"
+    },
+    {
+      "name": "commands-draw",
+      "description": "Topic for draw command processing"
+    },
+    {
+      "name": "commands-snapshot",
+      "description": "Topic for snapshot command processing"
+    },
+    {
+      "name": "commands-canvas-state",
+      "description": "Topic for canvas_state command processing"
+    },
+    {
+      "name": "commands-stats",
+      "description": "Topic for stats command processing"
+    },
+    {
+      "name": "commands-colors",
+      "description": "Topic for colors command processing"
+    },
+    {
+      "name": "commands-pixel-info",
+      "description": "Topic for pixel_info/getpixel command processing"
+    }
+  ]
+}
+

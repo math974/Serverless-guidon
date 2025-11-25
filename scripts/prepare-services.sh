@@ -12,10 +12,17 @@ SHARED_DIR="${PROJECT_ROOT}/services/shared"
 SERVICES=(
     "services/proxy"
     "services/processor-base"
-    "services/processor-art"
     "services/discord-registrar"
     "services/auth-service"
     "services/user-manager"
+    "services/web-frontend"
+    "services/canvas-service"
+    "services/processor-draw"
+    "services/processor-snapshot"
+    "services/processor-canvas-state"
+    "services/processor-stats"
+    "services/processor-colors"
+    "services/processor-pixel-info"
 )
 
 for service_dir in "${SERVICES[@]}"; do

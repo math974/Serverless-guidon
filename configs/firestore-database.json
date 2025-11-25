@@ -1,0 +1,27 @@
+{
+  "database": {
+    "name": "guidon-db",
+    "type": "firestore-native",
+    "location": "europe-west1",
+    "description": "Firestore database for user management and canvas state"
+  },
+  "collections": [
+    {
+      "name": "users",
+      "description": "User accounts and statistics"
+    },
+    {
+      "name": "sessions",
+      "description": "OAuth2 sessions for web authentication"
+    },
+    {
+      "name": "canvas",
+      "description": "Canvas state document"
+    },
+    {
+      "name": "pixels",
+      "description": "Individual pixel data"
+    }
+  ]
+}
+

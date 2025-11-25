@@ -10,6 +10,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=discord-auth-service}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/auth-service}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -60,15 +61,32 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=auth_handler \
   --trigger-http \
+  --allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db" \
   --set-secrets="DISCORD_CLIENT_ID=DISCORD_CLIENT_ID:latest,DISCORD_CLIENT_SECRET=DISCORD_CLIENT_SECRET:latest,DISCORD_REDIRECT_URI=DISCORD_REDIRECT_URI:latest,WEB_FRONTEND_URL=WEB_FRONTEND_URL:latest" \
   --timeout=300s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
 
 echo "Deployed: ${SERVICE_URL}"
+
+# Grant permissions to invoke user-manager and canvas-service
+USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+CANVAS_SERVICE_URL=$(gcloud functions describe canvas-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+
+if [ ! -z "${USER_MANAGER_URL:-}" ]; then
+  echo "Granting permission to invoke user-manager..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
+
+if [ ! -z "${CANVAS_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke canvas-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "canvas-service" "${PROJECT_ID}" "${REGION}" || true
+fi
+
 echo "Note: OAuth2 accessible via Gateway. Run: make update-gateway"
 

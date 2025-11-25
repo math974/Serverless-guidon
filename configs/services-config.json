@@ -1,0 +1,142 @@
+{
+  "services": {
+    "proxy": {
+      "name": "proxy",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "authentication": "public",
+      "secrets": ["DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN", "DISCORD_APPLICATION_ID"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL"]
+    },
+    "user-manager": {
+      "name": "user-manager",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "authentication": "private",
+      "secrets": [],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "FIRESTORE_DATABASE", "RATE_LIMITS_JSON"]
+    },
+    "canvas-service": {
+      "name": "canvas-service",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "540s",
+      "authentication": "private",
+      "secrets": [],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "FIRESTORE_DATABASE", "GCS_CANVAS_BUCKET"]
+    },
+    "auth-service": {
+      "name": "discord-auth-service",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "authentication": "public",
+      "secrets": ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_REDIRECT_URI", "WEB_FRONTEND_URL"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "FIRESTORE_DATABASE"]
+    },
+    "web-frontend": {
+      "name": "web-frontend",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "256MB",
+      "timeout": "120s",
+      "authentication": "public",
+      "secrets": [],
+      "env_vars": []
+    },
+    "discord-registrar": {
+      "name": "discord-utils",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "authentication": "public",
+      "secrets": ["DISCORD_BOT_TOKEN", "DISCORD_APPLICATION_ID"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT"]
+    },
+    "processor-base": {
+      "name": "processor-base",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "trigger": "pubsub",
+      "topic": "commands-base",
+      "secrets": [],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL"]
+    },
+    "processor-draw": {
+      "name": "processor-draw",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "540s",
+      "trigger": "pubsub",
+      "topic": "commands-draw",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    },
+    "processor-snapshot": {
+      "name": "processor-snapshot",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "540s",
+      "trigger": "pubsub",
+      "topic": "commands-snapshot",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    },
+    "processor-canvas-state": {
+      "name": "processor-canvas-state",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "trigger": "pubsub",
+      "topic": "commands-canvas-state",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    },
+    "processor-stats": {
+      "name": "processor-stats",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "trigger": "pubsub",
+      "topic": "commands-stats",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    },
+    "processor-colors": {
+      "name": "processor-colors",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "trigger": "pubsub",
+      "topic": "commands-colors",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    },
+    "processor-pixel-info": {
+      "name": "processor-pixel-info",
+      "region": "europe-west1",
+      "runtime": "python311",
+      "memory": "512MB",
+      "timeout": "300s",
+      "trigger": "pubsub",
+      "topic": "commands-pixel-info",
+      "secrets": ["DISCORD_BOT_TOKEN"],
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+    }
+  }
+}
+
