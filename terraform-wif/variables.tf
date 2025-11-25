@@ -10,11 +10,11 @@ variable "billing_account_id" {
 }
 
 variable "environment" {
-  description = "Environnement (dev ou prd)"
+  description = "Environnement (dev, stage ou prd)"
   type        = string
   validation {
-    condition     = contains(["dev", "prd"], var.environment)
-    error_message = "L'environnement doit être 'dev' ou 'prd'."
+    condition     = contains(["dev", "stage", "prd"], var.environment)
+    error_message = "L'environnement doit être 'dev', 'stage' ou 'prd'."
   }
 }
 

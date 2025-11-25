@@ -1,130 +1,136 @@
-name: Deploy Cloud Functions
-
-on:
-  push:
-    branches:
-      - main
-      - feat/api-gateway
-    paths:
-      - 'services/**'
-      - '.github/workflows/deploy-functions.yml'
-  workflow_dispatch:
-
-env:
-  PROJECT_ID: serverless-ejguidon-dev
-  REGION: europe-west1
-
-jobs:
-  deploy-functions:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Prepare services (copy shared modules)
-        run: |
-          chmod +x scripts/prepare-services.sh
-          ./scripts/prepare-services.sh
-
-      - name: Deploy discord-proxy function
-        run: |
-          gcloud functions deploy discord-proxy \
-            --gen2 \
-            --runtime=python311 \
-            --region=${{ env.REGION }} \
-            --source=services/proxy \
-            --entry-point=proxy_http \
-            --trigger-http \
-            --allow-unauthenticated \
-            --project=${{ env.PROJECT_ID }} \
-            --memory=512MB \
-            --timeout=60s \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
-
-      - name: Deploy discord-registrar function
-        run: |
-          gcloud functions deploy discord-registrar \
-            --gen2 \
-            --runtime=python311 \
-            --region=${{ env.REGION }} \
-            --source=services/discord-registrar \
-            --entry-point=registrar_http \
-            --trigger-http \
-            --allow-unauthenticated \
-            --project=${{ env.PROJECT_ID }} \
-            --memory=256MB \
-            --timeout=60s \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
-
-      - name: Deploy discord-processor-base function
-        run: |
-          gcloud functions deploy discord-processor-base \
-            --gen2 \
-            --runtime=python311 \
-            --region=${{ env.REGION }} \
-            --source=services/processor-base \
-            --entry-point=processor_base_http \
-            --trigger-http \
-            --allow-unauthenticated \
-            --project=${{ env.PROJECT_ID }} \
-            --memory=512MB \
-            --timeout=300s \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
-
-      - name: Deploy discord-processor-art function
-        run: |
-          gcloud functions deploy discord-processor-art \
-            --gen2 \
-            --runtime=python311 \
-            --region=${{ env.REGION }} \
-            --source=services/processor-art \
-            --entry-point=processor_art_http \
-            --trigger-http \
-            --allow-unauthenticated \
-            --project=${{ env.PROJECT_ID }} \
-            --memory=512MB \
-            --timeout=300s \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
-
-      - name: Get function URLs
-        run: |
-          echo "Function URLs:"
-          gcloud functions describe discord-proxy \
-            --gen2 \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(serviceConfig.uri)" || echo "discord-proxy: not found"
-          
-          gcloud functions describe discord-registrar \
-            --gen2 \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(serviceConfig.uri)" || echo "discord-registrar: not found"
-          
-          gcloud functions describe discord-processor-base \
-            --gen2 \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(serviceConfig.uri)" || echo "discord-processor-base: not found"
-          
-          gcloud functions describe discord-processor-art \
-            --gen2 \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --format="value(serviceConfig.uri)" || echo "discord-processor-art: not found"
-
+#name: Deploy Cloud Functions
+#
+#on:
+#  push:
+#    branches:
+#      - main
+#      - feat/api-gateway
+#    paths:
+#      - 'services/**'
+#      - '.github/workflows/deploy-functions.yml'
+#  workflow_dispatch:
+#
+#env:
+#  PROJECT_ID: serverless-ejguidon-dev
+#  REGION: europe-west1
+#
+#jobs:
+#  deploy-functions:
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: read
+#      id-token: write
+#
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v4
+#
+#      - name: Authenticate to Google Cloud
+#        uses: google-github-actions/auth@v2
+#        with:
+#          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+#          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+#
+#      - name: Set up Cloud SDK
+#        uses: google-github-actions/setup-gcloud@v2
+#        with:
+#          project_id: ${{ env.PROJECT_ID }}
+#
+#      - name: Prepare services (copy shared modules)
+#        run: |
+#          chmod +x scripts/prepare-services.sh
+#          ./scripts/prepare-services.sh
+#
+#      - name: Deploy discord-proxy function
+#        run: |
+#          gcloud functions deploy discord-proxy \
+#            --gen2 \
+#            --runtime=python311 \
+#            --region=${{ env.REGION }} \
+#            --source=services/proxy \
+#            --entry-point=proxy_http \
+#            --trigger-http \
+#            --allow-unauthenticated \
+#            --project=${{ env.PROJECT_ID }} \
+#            --memory=512MB \
+#            --timeout=60s \
+#            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
+#
+#      - name: Deploy discord-registrar function
+#        run: |
+#          gcloud functions deploy discord-registrar \
+#            --gen2 \
+#            --runtime=python311 \
+#            --region=${{ env.REGION }} \
+#            --source=services/discord-registrar \
+#            --entry-point=registrar_http \
+#            --trigger-http \
+#            --allow-unauthenticated \
+#            --project=${{ env.PROJECT_ID }} \
+#            --memory=256MB \
+#            --timeout=60s \
+#            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
+#
+#      - name: Deploy discord-processor-base function
+#        run: |
+#          gcloud functions deploy discord-processor-base \
+#            --gen2 \
+#            --runtime=python311 \
+#            --region=${{ env.REGION }} \
+#            --source=services/processor-base \
+#            --entry-point=processor_base_http \
+#            --trigger-http \
+#            --allow-unauthenticated \
+#            --project=${{ env.PROJECT_ID }} \
+#            --memory=512MB \
+#            --timeout=300s \
+#            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
+#
+#      - name: Deploy discord-processor-art function
+#        run: |
+#          gcloud functions deploy discord-processor-art \
+#            --gen2 \
+#            --runtime=python311 \
+#            --region=${{ env.REGION }} \
+#            --source=services/processor-art \
+#            --entry-point=processor_art_http \
+#            --trigger-http \
+#            --allow-unauthenticated \
+#            --project=${{ env.PROJECT_ID }} \
+#            --memory=512MB \
+#            --timeout=300s \
+#            --set-env-vars="GCP_PROJECT_ID=${{ env.PROJECT_ID }},ENVIRONMENT=production"
+#
+#      - name: Get function URLs
+#        run: |
+#          echo "Function URLs:"
+#          gcloud functions describe discord-proxy \
+#            --gen2 \
+#            --region=${{ env.REGION }} \
+#            --project=${{ env.PROJECT_ID }} \
+#            --format="value(serviceConfig.uri)" || echo "discord-proxy: not found"
+#          
+#          gcloud functions describe discord-registrar \
+#            --gen2 \
+#            --region=${{ env.REGION }} \
+#            --project=${{ env.PROJECT_ID }} \
+#            --format="value(serviceConfig.uri)" || echo "discord-registrar: not found"
+#          
+#          gcloud functions describe discord-processor-base \
+#            --gen2 \
+#            --region=${{ env.REGION }} \
+#            --project=${{ env.PROJECT_ID }} \
+#            --format="value(serviceConfig.uri)" || echo "discord-processor-base: not found"
+#          
+#          gcloud functions describe discord-processor-art \
+#            --gen2 \
+#            --region=${{ env.REGION }} \
+#            --project=${{ env.PROJECT_ID }} \
+#            --format="value(serviceConfig.uri)" || echo "discord-processor-art: not found"
+#
+#
+#
+#
+#
+#
+#

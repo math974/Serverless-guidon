@@ -64,15 +64,10 @@ module "api_gateway" {
   openapi_document_path = var.openapi_document_path
   labels                = var.labels
 
-  # Utiliser le template OpenAPI paramétré avec l'URL backend de la fonction
+  # Utiliser le template OpenAPI paramétré avec les URLs backend des fonctions
   openapi_template_path = "specs/openapi-template.yaml"
   openapi_variables = {
-    HELLO_URL = module.functions["hello-http"].function_url
-    PING_URL  = module.functions["ping-http"].function_url
+    PROXY_URL = module.functions["proxy"].function_url
+    AUTH_URL  = module.functions["auth-service"].function_url
   }
 }
-
-
-
-
-

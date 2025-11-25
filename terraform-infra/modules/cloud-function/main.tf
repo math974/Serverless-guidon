@@ -108,7 +108,7 @@ resource "google_cloudfunctions2_function" "function" {
   }
 
   depends_on = [google_project_service.apis, google_storage_bucket_object.minimal_archive]
-  
+
   lifecycle {
     ignore_changes = [build_config[0].source]
   }
