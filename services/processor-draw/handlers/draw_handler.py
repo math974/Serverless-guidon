@@ -109,29 +109,33 @@ def handle_draw(interaction: dict = None):
     if not canvas_result.get('success'):
         return create_error_embed("Draw failed", canvas_result.get('error', 'Unexpected error while modifying the canvas.'))
 
+    color_changed = canvas_result.get('changed', False)
+
     stats = {}
-    try:
-        new_total_draws = user_client.increment_usage(user_id, 'draw', correlation_id=correlation_id)
-        if new_total_draws is not None:
-            stats['total_draws'] = new_total_draws
-            logger.debug(
-                "Usage incremented successfully",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                total_draws=new_total_draws
-            )
-            user_stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
-            stats['is_premium'] = user_stats.get('is_premium', False)
-            stats['is_banned'] = user_stats.get('is_banned', False)
-        else:
-            logger.warning("Increment usage returned None", correlation_id=correlation_id, user_id=user_id)
-            stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
-    except Exception as exc:
-        logger.warning("Failed to increment draw usage", error=exc, correlation_id=correlation_id, user_id=user_id)
+    if color_changed:
         try:
-            stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
-        except Exception:
-            pass
+            new_total_draws = user_client.increment_usage(user_id, 'draw', correlation_id=correlation_id)
+            if new_total_draws is not None:
+                stats['total_draws'] = new_total_draws
+                logger.debug(
+                    "Usage incremented successfully",
+                    correlation_id=correlation_id,
+                    user_id=user_id,
+                    total_draws=new_total_draws
+                )
+            else:
+                logger.warning("Increment usage returned None", correlation_id=correlation_id, user_id=user_id)
+        except Exception as exc:
+            logger.warning("Failed to increment draw usage", error=exc, correlation_id=correlation_id, user_id=user_id)
+
+    try:
+        user_stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
+        if 'total_draws' not in stats:
+            stats['total_draws'] = user_stats.get('total_draws', 0)
+        stats['is_premium'] = user_stats.get('is_premium', False)
+        stats['is_banned'] = user_stats.get('is_banned', False)
+    except Exception as exc:
+        logger.warning("Failed to fetch user stats", error=exc, correlation_id=correlation_id, user_id=user_id)
 
     fields = []
     fields.append({'name': 'Coordinates', 'value': f'**X:** {x} | **Y:** {y}', 'inline': False})

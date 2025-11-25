@@ -10,6 +10,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=canvas-service}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/canvas-service}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -34,6 +35,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --timeout=540s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 

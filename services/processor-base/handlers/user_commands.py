@@ -96,12 +96,19 @@ def handle_stats(interaction_data: dict):
         user = (member.get('user') if member else None) or interaction_data.get('user')
         if user:
             username = user.get('username', 'unknown')
+            discriminator = user.get('discriminator', '0')
+            full_username = f"{username}#{discriminator}" if discriminator != '0' else username
             existing_user = call_user_manager(f'/api/users/{user_id}', correlation_id=correlation_id)
             if not existing_user:
                 call_user_manager(
                     '/api/users',
                     method='POST',
-                    data={'user_id': user_id, 'username': username},
+                    data={
+                        'user_id': user_id,
+                        'username': full_username,
+                        'avatar': user.get('avatar'),
+                        'discriminator': discriminator
+                    },
                     correlation_id=correlation_id
                 )
 
@@ -163,6 +170,8 @@ def handle_leaderboard(interaction_data: dict):
     )
 
     fields = []
+    champion_thumbnail = None
+    author = None
     medals = ['🥇', '🥈', '🥉']
 
     # Top 3 with their information
@@ -172,12 +181,24 @@ def handle_leaderboard(interaction_data: dict):
         is_premium = user.get('is_premium', False)
         medal = medals[i]
         premium_badge = ' ⭐ Premium' if is_premium else ''
+        avatar_url = None
+        user_id = user.get('user_id')
+        if user_id:
+            avatar_url = get_user_avatar_url(
+                user_id,
+                user.get('avatar'),
+                user.get('discriminator', '0')
+            )
+        if i == 0 and avatar_url:
+            champion_thumbnail = create_user_thumbnail(avatar_url)
+            author = create_user_author(username, avatar_url)
+        mention_display = f"<@{user_id}>" if user_id else f"**{username}**"
 
         rank_name = ['Champion', 'Runner-up', 'Third Place'][i]
 
         fields.append({
             'name': f'{medal} {rank_name}',
-            'value': f'**{username}**\n**{total_draws}** pixels drawn{premium_badge}',
+            'value': f'{mention_display}\n**{total_draws}** pixels drawn{premium_badge}',
             'inline': True
         })
 
@@ -188,8 +209,10 @@ def handle_leaderboard(interaction_data: dict):
             total_draws = user.get('total_draws', 0)
             is_premium = user.get('is_premium', False)
             premium_badge = ' ⭐' if is_premium else ''
+            user_id = user.get('user_id')
+            mention_display = f"<@{user_id}>" if user_id else username
 
-            others.append(f"**{i}.** {username}{premium_badge} - **{total_draws}** pixels")
+            others.append(f"**{i}.** {mention_display}{premium_badge} - **{total_draws}** pixels")
 
         if others:
             fields.append({
@@ -198,19 +221,13 @@ def handle_leaderboard(interaction_data: dict):
                 'inline': False
             })
 
-    # Get first place user for author (small avatar + name)
-    first_place = leaderboard[0] if leaderboard else None
-    author = None
-    if first_place and first_place.get('user_id'):
-        avatar_url = get_user_avatar_url(first_place.get('user_id'))
-        author = create_user_author(first_place.get('username', 'Unknown'), avatar_url)
-
     embed = create_embed(
         title='Leaderboard',
         description='Top artists by total pixels drawn',
         color=COLOR_PREMIUM,
         fields=fields,
         footer={'text': 'Top 10 users by draws • Use /draw to climb the leaderboard!'},
+        thumbnail=champion_thumbnail,
         author=author
     )
 
@@ -263,7 +280,8 @@ def handle_register(interaction_data: dict):
         data={
             'user_id': user_id,
             'username': full_username,
-            'avatar': user.get('avatar')
+            'avatar': user.get('avatar'),
+            'discriminator': discriminator
         },
         correlation_id=correlation_id
     )
@@ -348,7 +366,12 @@ def handle_userinfo(interaction_data: dict):
                 call_user_manager(
                     '/api/users',
                     method='POST',
-                    data={'user_id': target_user_id, 'username': username},
+                    data={
+                        'user_id': target_user_id,
+                        'username': target_username,
+                        'avatar': user.get('avatar'),
+                        'discriminator': discriminator
+                    },
                     correlation_id=correlation_id
                 )
 

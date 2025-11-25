@@ -319,12 +319,19 @@ def process_interaction(
             if correlation_id:
                 interaction_with_context['correlation_id'] = correlation_id
             response = command_handler.handle(command_name, interaction_with_context)
+            read_only_commands = {
+                'stats', 'leaderboard', 'canvas-state', 'snapshot',
+                'colors', 'pixel-info', 'hello', 'ping', 'help', 'userinfo'
+            }
+            self_managed_commands = {
+                'draw'
+            }
 
             member = interaction.get('member')
             user = (member.get('user') if member else None) or interaction.get('user')
             if user:
                 user_id = user.get('id')
-                if user_id:
+                if user_id and command_name not in read_only_commands and command_name not in self_managed_commands:
                     increment_user_usage_async(user_id, command_name, correlation_id=correlation_id, logger=logger)
 
             if logger:

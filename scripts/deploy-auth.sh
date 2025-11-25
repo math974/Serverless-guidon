@@ -10,6 +10,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=discord-auth-service}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/auth-service}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -65,6 +66,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db" \
   --set-secrets="DISCORD_CLIENT_ID=DISCORD_CLIENT_ID:latest,DISCORD_CLIENT_SECRET=DISCORD_CLIENT_SECRET:latest,DISCORD_REDIRECT_URI=DISCORD_REDIRECT_URI:latest,WEB_FRONTEND_URL=WEB_FRONTEND_URL:latest" \
   --timeout=300s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 
