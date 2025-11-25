@@ -9,10 +9,6 @@ terraform {
       source  = "hashicorp/google-beta"
       version = ">= 5.0"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = ">= 3.0"
-    }
     archive = {
       source  = "hashicorp/archive"
       version = ">= 2.4.0"
@@ -35,35 +31,10 @@ resource "google_project_service" "apis" {
 
 # Note: Source code is deployed via gcloud CLI in GitHub Actions pipeline
 # Terraform creates the function with a minimal source, then gcloud CLI updates it
-# We use a local null_resource to create a minimal source file for initial deployment
-locals {
-  # Create a minimal source directory structure for initial deployment
-  minimal_source_dir = "${path.module}/.minimal-${var.function_name}"
-}
-
-resource "null_resource" "minimal_source" {
-  triggers = {
-    function_name = var.function_name
-    entry_point   = var.entry_point
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      mkdir -p "${local.minimal_source_dir}"
-      cat > "${local.minimal_source_dir}/main.py" <<EOF
-def ${var.entry_point}(request):
-    """Minimal entry point - will be replaced by gcloud CLI deployment."""
-    return {"message": "Function deployed via Terraform, update via gcloud CLI"}, 200
-EOF
-      echo "functions-framework==3.*" > "${local.minimal_source_dir}/requirements.txt"
-    EOT
-  }
-}
-
+# We use a static minimal-template directory for initial deployment
 data "archive_file" "minimal_source_zip" {
-  depends_on  = [null_resource.minimal_source]
   type        = "zip"
-  source_dir  = local.minimal_source_dir
+  source_dir  = "${path.module}/minimal-template"
   output_path = "${path.module}/.minimal-${var.function_name}.zip"
 }
 
