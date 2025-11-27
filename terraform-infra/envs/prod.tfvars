@@ -21,11 +21,25 @@ functions = {
     entry_point = "auth_handler"
     source_dir  = "../services/auth-service"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      }
+    ]
   }
   "user-manager" = {
     entry_point = "user_management_handler"
     source_dir  = "../services/user-manager"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      }
+    ]
   }
   "discord-registrar" = {
     entry_point = "registrar_handler"
@@ -36,6 +50,13 @@ functions = {
     entry_point = "canvas_service"
     source_dir  = "../services/canvas-service"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      }
+    ]
   }
   "processor-base" = {
     entry_point = "processor_base_handler"
