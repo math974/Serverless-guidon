@@ -55,5 +55,23 @@ variable "secret_env" {
   default = []
 }
 
+variable "service_account_email" {
+  description = "Email du service account à utiliser pour la Cloud Function"
+  type        = string
+  default     = null
+}
+
+variable "allow_public_access" {
+  description = "Autoriser l'accès public (allUsers) à la fonction. Si false, seuls les service accounts autorisés peuvent l'invoquer."
+  type        = bool
+  default     = false
+}
+
+variable "authorized_invokers" {
+  description = "Liste des membres autorisés à invoquer la fonction (ex: ['serviceAccount:xxx@yyy.iam.gserviceaccount.com']). Ignoré si allow_public_access = true."
+  type        = list(string)
+  default     = []
+}
+
 
 

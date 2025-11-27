@@ -16,6 +16,52 @@ terraform {
   backend "gcs" {}
 }
 
+# Data source pour obtenir le project number
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+# Service Accounts avec configuration depuis tfvars
+module "service_accounts" {
+  source   = "./modules/service-account"
+  for_each = var.service_accounts
+
+  project_id            = var.project_id
+  account_id            = each.value.account_id
+  display_name          = each.value.display_name
+  description           = coalesce(each.value.description, "")
+  project_roles         = coalesce(each.value.project_roles, [])
+  cloud_run_permissions = coalesce(each.value.cloud_run_permissions, {})
+  secret_permissions    = coalesce(each.value.secret_permissions, {})
+}
+
+# Permissions Cloud Run dynamiques basées sur authorized_invokers
+# Pour chaque fonction, on crée les permissions pour les service accounts autorisés
+locals {
+  # Créer une map de permissions: {function_name-sa_name => {function_name, sa_name}}
+  function_invoker_permissions = merge([
+    for func_name, func_config in var.functions : {
+      for sa_name in coalesce(func_config.authorized_invokers, []) :
+      "${func_name}-${sa_name}" => {
+        function_name = func_name
+        sa_name       = sa_name
+      }
+    }
+  ]...)
+}
+
+resource "google_cloud_run_service_iam_member" "function_invokers" {
+  for_each = local.function_invoker_permissions
+
+  project  = var.project_id
+  location = var.region
+  service  = module.functions[each.value.function_name].function_name
+  role     = "roles/run.invoker"
+  member   = module.service_accounts[each.value.sa_name].member
+
+  depends_on = [module.functions, module.service_accounts]
+}
+
 resource "google_storage_bucket" "cf_src" {
   name                        = "${var.project_id}-cf2-src"
   project                     = var.project_id
@@ -36,15 +82,23 @@ module "functions" {
     google-beta = google-beta
   }
 
-  project_id    = var.project_id
-  region        = var.region
-  function_name = each.key
-  entry_point   = each.value.entry_point
-  source_dir    = each.value.source_dir
-  runtime       = try(each.value.runtime, "python311")
-  labels        = merge(var.labels, coalesce(each.value.labels, {}))
-  secret_env    = coalesce(each.value.secret_env, [])
-  bucket_name   = google_storage_bucket.cf_src.name
+  project_id            = var.project_id
+  region                = var.region
+  function_name         = each.key
+  entry_point           = each.value.entry_point
+  source_dir            = each.value.source_dir
+  runtime               = try(each.value.runtime, "python311")
+  labels                = merge(var.labels, coalesce(each.value.labels, {}))
+  secret_env            = coalesce(each.value.secret_env, [])
+  bucket_name           = google_storage_bucket.cf_src.name
+  service_account_email = module.service_accounts["cloud-functions"].email
+
+  # Configuration de l'accès : par défaut privé (pas d'accès public)
+  # Les permissions IAM sont gérées dans la configuration des service accounts
+  allow_public_access = false
+  authorized_invokers = []
+
+  depends_on = [module.service_accounts]
 }
 
 module "api_gateway" {
@@ -63,6 +117,7 @@ module "api_gateway" {
   openapi_spec_path     = var.openapi_spec_path
   openapi_document_path = var.openapi_document_path
   labels                = var.labels
+  service_account_email = module.service_accounts["api-gateway"].email
 
   # Utiliser le template OpenAPI paramétré avec les URLs backend des fonctions
   openapi_template_path = "specs/openapi-template.yaml"
@@ -70,6 +125,8 @@ module "api_gateway" {
     PROXY_URL = module.functions["proxy"].function_url
     AUTH_URL  = module.functions["auth-service"].function_url
   }
+
+  depends_on = [module.service_accounts]
 }
 
 module "firestore" {
@@ -81,11 +138,9 @@ module "firestore" {
   database_type = "FIRESTORE_NATIVE"
   enable_pitr   = false
 
-  # Donner accès lecture/écriture à toutes les Cloud Functions
-  # Utilise le service account par défaut App Engine qui est automatiquement créé
-  function_service_accounts = [
-    "${var.project_id}@appspot.gserviceaccount.com"
-  ]
+  # Les permissions IAM sont gérées dans le module service-accounts
+  # On ne passe plus de service accounts ici
+  function_service_accounts = []
 }
 
 module "pubsub" {
@@ -134,7 +189,7 @@ module "pubsub" {
       name                  = "processor-base-sub"
       topic_name            = "commands-base"
       push_endpoint         = module.functions["processor-base"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-base"
       function_region       = var.region
     }
@@ -142,7 +197,7 @@ module "pubsub" {
       name                  = "processor-draw-sub"
       topic_name            = "commands-draw"
       push_endpoint         = module.functions["processor-draw"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-draw"
       function_region       = var.region
     }
@@ -150,7 +205,7 @@ module "pubsub" {
       name                  = "processor-snapshot-sub"
       topic_name            = "commands-snapshot"
       push_endpoint         = module.functions["processor-snapshot"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-snapshot"
       function_region       = var.region
     }
@@ -158,7 +213,7 @@ module "pubsub" {
       name                  = "processor-canvas-state-sub"
       topic_name            = "commands-canvas-state"
       push_endpoint         = module.functions["processor-canvas-state"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-canvas-state"
       function_region       = var.region
     }
@@ -166,7 +221,7 @@ module "pubsub" {
       name                  = "processor-stats-sub"
       topic_name            = "commands-stats"
       push_endpoint         = module.functions["processor-stats"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-stats"
       function_region       = var.region
     }
@@ -174,7 +229,7 @@ module "pubsub" {
       name                  = "processor-colors-sub"
       topic_name            = "commands-colors"
       push_endpoint         = module.functions["processor-colors"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-colors"
       function_region       = var.region
     }
@@ -182,7 +237,7 @@ module "pubsub" {
       name                  = "processor-pixel-info-sub"
       topic_name            = "commands-pixel-info"
       push_endpoint         = module.functions["processor-pixel-info"].function_url
-      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      service_account_email = module.service_accounts["pubsub"].email
       function_name         = "processor-pixel-info"
       function_region       = var.region
     }

@@ -95,6 +95,7 @@ resource "google_cloudfunctions2_function" "function" {
   service_config {
     ingress_settings               = "ALLOW_ALL"
     all_traffic_on_latest_revision = true
+    service_account_email          = var.service_account_email
 
     dynamic "secret_environment_variables" {
       for_each = var.secret_env
@@ -110,12 +111,26 @@ resource "google_cloudfunctions2_function" "function" {
   depends_on = [google_project_service.apis, google_storage_bucket_object.source_archive]
 }
 
+# IAM : Accès public (si activé)
 resource "google_cloudfunctions2_function_iam_member" "invoker_public" {
+  count = var.allow_public_access ? 1 : 0
+
   project        = var.project_id
   location       = var.region
   cloud_function = google_cloudfunctions2_function.function.name
   role           = "roles/cloudfunctions.invoker"
   member         = "allUsers"
+}
+
+# IAM : Accès restreint aux service accounts autorisés (si pas d'accès public)
+resource "google_cloudfunctions2_function_iam_member" "invoker_authorized" {
+  for_each = var.allow_public_access ? toset([]) : toset(var.authorized_invokers)
+
+  project        = var.project_id
+  location       = var.region
+  cloud_function = google_cloudfunctions2_function.function.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = each.value
 }
 
 

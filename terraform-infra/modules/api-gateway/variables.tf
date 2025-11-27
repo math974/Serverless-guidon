@@ -53,6 +53,11 @@ variable "labels" {
   default     = {}
 }
 
+variable "service_account_email" {
+  description = "Email du service account à utiliser pour l'API Gateway (pour invoquer les backends)"
+  type        = string
+}
+
 
 
 

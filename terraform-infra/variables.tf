@@ -44,10 +44,11 @@ variable "labels" {
 variable "functions" {
   description = "Définition des fonctions serverless à déployer (map de fonctions)"
   type = map(object({
-    entry_point = string
-    source_dir  = string
-    runtime     = optional(string)
-    labels      = optional(map(string))
+    entry_point         = string
+    source_dir          = string
+    runtime             = optional(string)
+    labels              = optional(map(string))
+    authorized_invokers = optional(list(string)) # Liste des service accounts autorisés (ex: ["api-gateway", "pubsub"])
     secret_env = optional(list(object({
       key     = string
       secret  = string
@@ -61,6 +62,26 @@ variable "firestore_database_id" {
   description = "Nom de la database Firestore"
   type        = string
   default     = "guidon-db"
+}
+
+variable "service_accounts" {
+  description = "Configuration des service accounts à créer avec leurs permissions IAM"
+  type = map(object({
+    account_id    = string
+    display_name  = string
+    description   = optional(string)
+    project_roles = optional(list(string))
+    cloud_run_permissions = optional(map(object({
+      service_name = string
+      region       = string
+      role         = string
+    })))
+    secret_permissions = optional(map(object({
+      secret_id = string
+      role      = string
+    })))
+  }))
+  default = {}
 }
 
 

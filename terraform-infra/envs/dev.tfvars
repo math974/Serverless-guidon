@@ -13,14 +13,16 @@ labels = {
 
 functions = {
   "proxy" = {
-    entry_point = "proxy_handler"
-    source_dir  = "../services/proxy"
-    runtime     = "python311"
+    entry_point         = "proxy_handler"
+    source_dir          = "../services/proxy"
+    runtime             = "python311"
+    authorized_invokers = ["api-gateway"]
   }
   "auth-service" = {
-    entry_point = "auth_handler"
-    source_dir  = "../services/auth-service"
-    runtime     = "python311"
+    entry_point         = "auth_handler"
+    source_dir          = "../services/auth-service"
+    runtime             = "python311"
+    authorized_invokers = ["api-gateway"]
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -30,9 +32,10 @@ functions = {
     ]
   }
   "user-manager" = {
-    entry_point = "user_management_handler"
-    source_dir  = "../services/user-manager"
-    runtime     = "python311"
+    entry_point         = "user_management_handler"
+    source_dir          = "../services/user-manager"
+    runtime             = "python311"
+    authorized_invokers = ["api-gateway"]
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -47,9 +50,10 @@ functions = {
     runtime     = "python311"
   }
   "canvas-service" = {
-    entry_point = "canvas_service"
-    source_dir  = "../services/canvas-service"
-    runtime     = "python311"
+    entry_point         = "canvas_service"
+    source_dir          = "../services/canvas-service"
+    runtime             = "python311"
+    authorized_invokers = []
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -59,39 +63,72 @@ functions = {
     ]
   }
   "processor-base" = {
-    entry_point = "processor_base_handler"
-    source_dir  = "../services/processor-base"
-    runtime     = "python311"
+    entry_point         = "processor_base_handler"
+    source_dir          = "../services/processor-base"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-stats" = {
-    entry_point = "processor_stats_handler"
-    source_dir  = "../services/processor-stats"
-    runtime     = "python311"
+    entry_point         = "processor_stats_handler"
+    source_dir          = "../services/processor-stats"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-colors" = {
-    entry_point = "processor_colors_handler"
-    source_dir  = "../services/processor-colors"
-    runtime     = "python311"
+    entry_point         = "processor_colors_handler"
+    source_dir          = "../services/processor-colors"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-draw" = {
-    entry_point = "processor_draw_handler"
-    source_dir  = "../services/processor-draw"
-    runtime     = "python311"
+    entry_point         = "processor_draw_handler"
+    source_dir          = "../services/processor-draw"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-pixel-info" = {
-    entry_point = "processor_pixel_info_handler"
-    source_dir  = "../services/processor-pixel-info"
-    runtime     = "python311"
+    entry_point         = "processor_pixel_info_handler"
+    source_dir          = "../services/processor-pixel-info"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-snapshot" = {
-    entry_point = "processor_snapshot_handler"
-    source_dir  = "../services/processor-snapshot"
-    runtime     = "python311"
+    entry_point         = "processor_snapshot_handler"
+    source_dir          = "../services/processor-snapshot"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
   }
   "processor-canvas-state" = {
-    entry_point = "processor_canvas_state_handler"
-    source_dir  = "../services/processor-canvas-state"
-    runtime     = "python311"
+    entry_point         = "processor_canvas_state_handler"
+    source_dir          = "../services/processor-canvas-state"
+    runtime             = "python311"
+    authorized_invokers = ["pubsub"]
+  }
+}
+
+service_accounts = {
+  "cloud-functions" = {
+    account_id   = "cloud-functions-sa"
+    display_name = "Cloud Functions Service Account"
+    description  = "Service account pour exécuter les Cloud Functions avec permissions minimales"
+    project_roles = [
+      "roles/datastore.user",              # Firestore lecture/écriture
+      "roles/pubsub.publisher",            # Publier sur Pub/Sub topics
+      "roles/logging.logWriter",           # Écrire les logs
+      "roles/cloudtrace.agent",            # Traçage distribué
+      "roles/monitoring.metricWriter",     # Métriques
+      "roles/secretmanager.secretAccessor" # Lire les secrets
+    ]
+  }
+  "api-gateway" = {
+    account_id   = "api-gateway-sa"
+    display_name = "API Gateway Service Account"
+    description  = "Service account pour l'API Gateway - permissions gérées dynamiquement"
+  }
+  "pubsub" = {
+    account_id   = "pubsub-invoker-sa"
+    display_name = "Pub/Sub Invoker Service Account"
+    description  = "Service account pour Pub/Sub push subscriptions - permissions gérées dynamiquement"
   }
 }
 
