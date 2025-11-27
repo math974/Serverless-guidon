@@ -71,3 +71,106 @@ module "api_gateway" {
     AUTH_URL  = module.functions["auth-service"].function_url
   }
 }
+
+module "pubsub" {
+  source = "./modules/pubsub"
+
+  project_id = var.project_id
+  labels     = var.labels
+
+  topics = [
+    {
+      name        = "interactions"
+      description = "Topic for all Discord and Web interactions"
+    },
+    {
+      name        = "commands-base"
+      description = "Topic for base commands (ping, hello, help)"
+    },
+    {
+      name        = "commands-draw"
+      description = "Topic for draw command processing"
+    },
+    {
+      name        = "commands-snapshot"
+      description = "Topic for snapshot command processing"
+    },
+    {
+      name        = "commands-canvas-state"
+      description = "Topic for canvas_state command processing"
+    },
+    {
+      name        = "commands-stats"
+      description = "Topic for stats command processing"
+    },
+    {
+      name        = "commands-colors"
+      description = "Topic for colors command processing"
+    },
+    {
+      name        = "commands-pixel-info"
+      description = "Topic for pixel_info/getpixel command processing"
+    }
+  ]
+
+  push_subscriptions = {
+    processor_base = {
+      name                  = "processor-base-sub"
+      topic_name            = "commands-base"
+      push_endpoint         = module.functions["processor-base"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-base"
+      function_region       = var.region
+    }
+    processor_draw = {
+      name                  = "processor-draw-sub"
+      topic_name            = "commands-draw"
+      push_endpoint         = module.functions["processor-draw"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-draw"
+      function_region       = var.region
+    }
+    processor_snapshot = {
+      name                  = "processor-snapshot-sub"
+      topic_name            = "commands-snapshot"
+      push_endpoint         = module.functions["processor-snapshot"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-snapshot"
+      function_region       = var.region
+    }
+    processor_canvas_state = {
+      name                  = "processor-canvas-state-sub"
+      topic_name            = "commands-canvas-state"
+      push_endpoint         = module.functions["processor-canvas-state"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-canvas-state"
+      function_region       = var.region
+    }
+    processor_stats = {
+      name                  = "processor-stats-sub"
+      topic_name            = "commands-stats"
+      push_endpoint         = module.functions["processor-stats"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-stats"
+      function_region       = var.region
+    }
+    processor_colors = {
+      name                  = "processor-colors-sub"
+      topic_name            = "commands-colors"
+      push_endpoint         = module.functions["processor-colors"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-colors"
+      function_region       = var.region
+    }
+    processor_pixel_info = {
+      name                  = "processor-pixel-info-sub"
+      topic_name            = "commands-pixel-info"
+      push_endpoint         = module.functions["processor-pixel-info"].function_url
+      service_account_email = "${var.project_id}@appspot.gserviceaccount.com"
+      function_name         = "processor-pixel-info"
+      function_region       = var.region
+    }
+  }
+
+  depends_on = [module.functions]
+}
