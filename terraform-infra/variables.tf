@@ -57,6 +57,12 @@ variable "functions" {
   default = {}
 }
 
+variable "firestore_database_id" {
+  description = "Nom de la database Firestore"
+  type        = string
+  default     = "guidon-db"
+}
+
 
 
 

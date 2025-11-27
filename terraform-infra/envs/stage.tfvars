@@ -1,9 +1,10 @@
-project_id           = "serverless-staging-478911"
-region               = "europe-west1"
-api_id               = "picasso-api"
-gateway_id           = "picasso-gw-stage"
-api_config_id_prefix = "v"
-openapi_spec_path    = "specs/openapi-template.yaml"
+project_id            = "serverless-staging-478911"
+region                = "europe-west1"
+api_id                = "picasso-api"
+gateway_id            = "picasso-gw-stage"
+api_config_id_prefix  = "v"
+openapi_spec_path     = "specs/openapi-template.yaml"
+firestore_database_id = "guidon-db"
 
 labels = {
   environment = "stage"

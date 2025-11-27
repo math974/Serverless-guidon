@@ -72,6 +72,22 @@ module "api_gateway" {
   }
 }
 
+module "firestore" {
+  source = "./modules/firestore"
+
+  project_id    = var.project_id
+  database_id   = var.firestore_database_id
+  location_id   = var.region
+  database_type = "FIRESTORE_NATIVE"
+  enable_pitr   = false
+
+  # Donner accès lecture/écriture à toutes les Cloud Functions
+  # Utilise le service account par défaut App Engine qui est automatiquement créé
+  function_service_accounts = [
+    "${var.project_id}@appspot.gserviceaccount.com"
+  ]
+}
+
 module "pubsub" {
   source = "./modules/pubsub"
 

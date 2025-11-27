@@ -81,6 +81,7 @@ variable "roles" {
     "roles/serviceusage.serviceUsageAdmin",
     "roles/cloudfunctions.admin",
     "roles/pubsub.admin",
-    "roles/run.admin"
+    "roles/run.admin",
+    "roles/datastore.owner"
   ]
 }
