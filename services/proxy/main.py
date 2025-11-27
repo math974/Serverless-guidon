@@ -114,6 +114,11 @@ def web_interactions(request: Request):
             return jsonify(response), status_code
 
         pubsub_data = prepare_pubsub_data(data, 'web', request=request)
+        
+        if not pubsub_data:
+            logger.warning("Failed to prepare pubsub data (missing webhook_url?)", correlation_id=correlation_id)
+            return jsonify({'status': 'error', 'message': 'Invalid interaction data'}), 400
+
         pubsub_data['correlation_id'] = correlation_id  # Propagate correlation ID
         topic = get_topic_for_command(command_name)
 
