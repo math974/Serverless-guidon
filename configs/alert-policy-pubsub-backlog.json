@@ -1,0 +1,32 @@
+{
+  "displayName": "Pub/Sub backlog élevé",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Backlog > 100 messages",
+      "conditionThreshold": {
+        "filter": "resource.type=\"pubsub_subscription\" AND metric.type=\"pubsub.googleapis.com/subscription/num_undelivered_messages\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MEAN",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": [
+              "resource.labels.subscription_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 100,
+        "duration": "120s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/serverless-ejguidon-dev/notificationChannels/17424193045619288052"
+  ]
+}
+

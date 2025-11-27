@@ -1,0 +1,37 @@
+{
+  "displayName": "High Cloud Run error rate",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "5xx ratio > 5%",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE"
+          }
+        ],
+        "denominatorFilter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\"",
+        "denominatorAggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_RATE"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 0.05,
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/serverless-ejguidon-dev/notificationChannels/1348070801769929671"
+  ],
+  "alertStrategy": {
+    "autoClose": "3600s"
+  }
+}

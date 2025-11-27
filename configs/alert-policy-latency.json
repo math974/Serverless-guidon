@@ -1,0 +1,27 @@
+{
+  "displayName": "Cloud Run latency P95 high",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Latency P95 > 2s",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_DELTA",
+            "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+            "groupByFields": ["resource.labels.service_name"]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 2000,
+        "duration": "0s",
+        "trigger": {"count": 1}
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/serverless-ejguidon-dev/notificationChannels/1348070801769929671"
+  ]
+}

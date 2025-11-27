@@ -1,0 +1,411 @@
+{
+  "displayName": "Cloud Observability Overview",
+  "etag": "0f78522dd0ff6d994e58282be10c0d78",
+  "dashboardFilters": [
+    {
+      "filterType": "RESOURCE_LABEL",
+      "labelKey": "service_name",
+      "templateVariable": "service_filter",
+      "valueType": "STRING_ARRAY"
+    }
+  ],
+  "mosaicLayout": {
+    "columns": 48,
+    "tiles": [
+      {
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "📈 Requêtes Cloud Run par service (req/min)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Requêtes/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "⏱️ Latence P95 par service (ms)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Latence P95 (ms)",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 12,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "🔴 Taux d'erreur (5xx / total)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilterRatio": {
+                    "numerator": {
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class=\"5xx\"",
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "perSeriesAligner": "ALIGN_RATE",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": [
+                          "resource.labels.service_name"
+                        ]
+                      }
+                    },
+                    "denominator": {
+                      "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\"",
+                      "aggregation": {
+                        "alignmentPeriod": "60s",
+                        "perSeriesAligner": "ALIGN_RATE",
+                        "crossSeriesReducer": "REDUCE_SUM",
+                        "groupByFields": [
+                          "resource.labels.service_name"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Taux d'erreur",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 12,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "📊 Vue santé CPU / Mémoire",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "legendTemplate": "CPU - ${resource.labels.service_name}",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_MEAN",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y2",
+                "legendTemplate": "RAM - ${resource.labels.service_name}",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_MEAN",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "CPU %",
+              "scale": "LINEAR"
+            },
+            "y2Axis": {
+              "label": "RAM %",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 24,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "🧑‍💻 User Manager - Flux OAuth2 (req/min)",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"user-manager\" AND metric.type=\"run.googleapis.com/request_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM"
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "req/min",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 24,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "📦 Instances Cloud Run actives",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/instance_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.service_name"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Instances",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "yPos": 36,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "📝 Logs ERROR (structurés)",
+          "logsPanel": {
+            "filter": "resource.type=\"cloud_run_revision\" AND (severity=\"ERROR\" OR jsonPayload.severity=\"ERROR\")"
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 36,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "⚠️ Logs WARNING",
+          "logsPanel": {
+            "filter": "resource.type=\"cloud_run_revision\" AND (severity=\"WARNING\" OR jsonPayload.severity=\"WARNING\")"
+          }
+        }
+      },
+      {
+        "yPos": 52,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "🔎 Logs corrélés (correlation_id)",
+          "logsPanel": {
+            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.correlation_id!=\"\""
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 52,
+        "width": 24,
+        "height": 16,
+        "widget": {
+          "title": "📡 Observability & Auth quick links",
+          "text": {
+            "format": "MARKDOWN",
+            "content": "## 🔗 Raccourcis essentiels\n\n### Logs Explorer\n- [Tous les logs Cloud Run](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22)\n- [Logs corrélés par ID](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.type%3D%22cloud_run_revision%22%20AND%20jsonPayload.correlation_id%21%3D%22%22)\n\n### Cloud Trace\n- [Vue traces complètes](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev)\n- [Traces avec erreurs](https://console.cloud.google.com/traces/list?project=serverless-ejguidon-dev&f=traceFilter:HAS%3A%22error%22)\n\n### Alerting & SLO\n- [Politiques d'alerte](https://console.cloud.google.com/monitoring/alerting?project=serverless-ejguidon-dev)\n- [Créer un SLO](https://console.cloud.google.com/monitoring/slo?project=serverless-ejguidon-dev)\n\n### Discord OAuth2\n- [Callback logs user-manager](https://console.cloud.google.com/logs/query?project=serverless-ejguidon-dev&query=resource.labels.service_name%3D%22user-manager%22)\n- Vérifiez `correlation_id` pour relier front → proxy → user-manager\n"
+          }
+        }
+      },
+      {
+        "yPos": 68,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "📬 Pub/Sub backlog par abonnement",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"pubsub_subscription\" AND metric.type=\"pubsub.googleapis.com/subscription/num_undelivered_messages\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "crossSeriesReducer": "REDUCE_MAX",
+                      "groupByFields": [
+                        "resource.labels.subscription_id"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "Messages en attente",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 68,
+        "width": 24,
+        "height": 12,
+        "widget": {
+          "title": "📥 Pub/Sub ACK vs reçus",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "legendTemplate": "ACK - ${resource.labels.subscription_id}",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"pubsub_subscription\" AND metric.type=\"pubsub.googleapis.com/subscription/ack_message_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.subscription_id"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "plotType": "LINE",
+                "targetAxis": "Y2",
+                "legendTemplate": "Reçus - ${resource.labels.subscription_id}",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "resource.type=\"pubsub_subscription\" AND metric.type=\"pubsub.googleapis.com/subscription/receive_message_count\"",
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "crossSeriesReducer": "REDUCE_SUM",
+                      "groupByFields": [
+                        "resource.labels.subscription_id"
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": {
+              "label": "ACK/sec",
+              "scale": "LINEAR"
+            },
+            "y2Axis": {
+              "label": "Reçus/sec",
+              "scale": "LINEAR"
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+

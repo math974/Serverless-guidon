@@ -2,102 +2,70 @@
 
 Ce dossier contient les fichiers de configuration pour l'infrastructure et l'observabilité du projet.
 
-## 📊 Cloud Monitoring Dashboard
+## 📊 Cloud Monitoring Dashboards
 
-### `cloud-monitoring-dashboard-v1.json`
+### `cloud-observability-dashboard.json`
 
-Dashboard d'observabilité pour visualiser les métriques, logs et traces de l'architecture Discord Bot.
+Vue personnalisée “Cloud Observability Overview” (module C7) qui regroupe Cloud Run, Pub/Sub, logs structurés et liens OAuth2.
 
-**Déploiement** :
+**Déploiement / mise à jour**
 ```bash
-./scripts/deploy-dashboard.sh
+# Créer
+gcloud monitoring dashboards create \
+  --project=serverless-ejguidon-dev \
+  --config-from-file=configs/cloud-observability-dashboard.json
+
+# Mettre à jour (utilise l'ID retourné par la création)
+gcloud monitoring dashboards update \
+  projects/471152872810/dashboards/3a7e5dcf-e820-4cdc-aef7-70d6f34d40ee \
+  --config-from-file=configs/cloud-observability-dashboard.json
 ```
 
-**Accès** :
-```
-https://console.cloud.google.com/monitoring/dashboards?project=serverless-ejguidon-dev
-```
-
-### Widgets inclus
+**Widgets inclus**
 
 | Widget | Description | Source |
 |--------|-------------|--------|
-| 📈 Requêtes par service | Trafic en req/min par service | `run.googleapis.com/request_count` |
-| ⏱️ Latence P95 | Latence au 95e percentile | `run.googleapis.com/request_latencies` |
-| 🔴 Taux d'erreur | Ratio d'erreurs 5xx | Ratio request_count (5xx/total) |
-| 📝 Logs ERROR | Logs de sévérité ERROR | Cloud Logging |
-| 🔍 Liens Cloud Trace | Accès rapide aux traces | Liens directs |
-| 💻 CPU Utilization | Utilisation CPU du proxy | `run.googleapis.com/container/cpu/utilizations` |
-| 💾 Memory Utilization | Utilisation mémoire du proxy | `run.googleapis.com/container/memory/utilizations` |
-| 📦 Container Instances | Nombre d'instances actives | `run.googleapis.com/container/instance_count` |
-| 🔎 Logs correlation_id | Logs filtrés par correlation_id | Cloud Logging |
-| ⚠️ Logs WARNING | Logs de sévérité WARNING | Cloud Logging |
-| ℹ️ Documentation | Informations et liens utiles | Texte Markdown |
+| 📈 Requêtes Cloud Run | req/min par service | `run.googleapis.com/request_count` |
+| ⏱️ Latence P95 | Percentile 95 par service | `run.googleapis.com/request_latencies` |
+| 🔴 Taux d'erreur | Ratio 5xx / total | `run.googleapis.com/request_count` |
+| 💻/💾 Santé CPU & RAM | CPU/RAM de tous les services | `run.googleapis.com/container/*` |
+| 📦 Instances Cloud Run | Instance count agrégé | `run.googleapis.com/container/instance_count` |
+| 👤 User Manager OAuth2 | Trafic spécifique au service auth | `run.googleapis.com/request_count` |
+| 📝/⚠️ Logs ERROR & WARNING | Logs structurés Cloud Logging | `resource.type=cloud_run_revision` |
+| 🔎 Logs corrélés | Filtre `jsonPayload.correlation_id` | Cloud Logging |
+| 📡 Quick links | Liens vers Logs, Trace, alerting, OAuth | Markdown |
+| 📬 Pub/Sub backlog | `num_undelivered_messages` par subscription | `pubsub.googleapis.com/subscription` |
+| 📥 Pub/Sub ACK vs reçus | `ack_message_count` vs `receive_message_count` | `pubsub.googleapis.com/subscription` |
 
-### Métriques disponibles (V1)
+### Ancien dashboard V1
 
-**Sources de données actuelles** :
-- ✅ Métriques natives Cloud Run (requêtes, latence, CPU, mémoire)
-- ✅ Logs structurés JSON (severity, service, message, trace_id, correlation_id)
-- ✅ Traces OpenTelemetry → Cloud Trace
+`cloud-monitoring-dashboard-v1.json` reste disponible pour référence historique (script `scripts/deploy-dashboard.sh`), mais la vue principale recommandée est désormais `cloud-observability-dashboard.json`.
 
-**Limitations V1** :
-- ❌ Pas de métriques custom par commande Discord
-- ❌ Pas d'attributs de span enrichis (command_name, user_id)
-- ❌ Pas de SLO/SLI configurés
+### Modifier / supprimer un dashboard
 
-### Évolutions futures (V2+)
+- Interface : ouvrir le dashboard → **Edit** → modifier → **Save**.
+- CLI : `gcloud monitoring dashboards update <ID> --config-from-file=<fichier>`.
+- Suppression : `gcloud monitoring dashboards delete <ID> --project=serverless-ejguidon-dev`.
 
-**Phase 2** : Métriques business
-```python
-# Enrichir les spans avec des attributs métier
-span.set_attribute("discord.command.name", command_name)
-span.set_attribute("discord.user.id", user_id)
-span.set_attribute("art.processing.duration_ms", duration_ms)
-```
+## 🚨 Alerting
 
-**Phase 3** : Métriques custom
-```python
-# Ajouter des compteurs et histogrammes
-metrics.record_command(command_name, duration_ms, success=True)
-```
+Les politiques d’alerte Cloud Monitoring sont décrites en JSON :
 
-**Phase 4** : SLO/SLI
-```yaml
-# Définir des objectifs de niveau de service
-slos:
-  - name: "discord-proxy-availability"
-    goal: 0.999  # 99.9%
-  - name: "discord-commands-latency"
-    goal: 0.95   # 95% < 500ms
-```
+| Fichier | Description |
+|---------|-------------|
+| `alert-policy-high-error-rate.json` | Ratio 5xx > 5 % (Cloud Run) |
+| `alert-policy-latency.json` | Latence P95 > 2 s |
+| `alert-policy-uptime.json` | Échec de l’uptime check `user-manager-health` |
+| `alert-policy-pubsub-backlog.json` | Backlog Pub/Sub > 100 messages pendant 2 min |
 
-### Modification du dashboard
-
-**Via l'interface graphique** :
-1. Ouvrez le dashboard dans GCP Console
-2. Cliquez sur "Edit dashboard"
-3. Ajoutez/modifiez/supprimez des widgets
-4. Cliquez sur "Save"
-
-**Via le fichier JSON** :
-1. Modifiez `cloud-monitoring-dashboard-v1.json`
-2. Exportez le dashboard existant pour récupérer son ID :
-   ```bash
-   gcloud monitoring dashboards list --format="value(name)"
-   ```
-3. Mettez à jour le dashboard :
-   ```bash
-   gcloud monitoring dashboards update <DASHBOARD_ID> \
-     --config-from-file=configs/cloud-monitoring-dashboard-v1.json
-   ```
-
-### Supprimer le dashboard
-
+**Déploiement**
 ```bash
-gcloud monitoring dashboards delete <DASHBOARD_ID> \
-  --project=serverless-ejguidon-dev
+gcloud alpha monitoring policies create \
+  --project=serverless-ejguidon-dev \
+  --policy-from-file=configs/alert-policy-*.json
 ```
+
+Les notifications sont envoyées sur le canal e-mail `lucas.arnassalom@epitech.eu`. Utilise `gcloud beta monitoring channels list` pour récupérer l’ID si besoin.
 
 ## 🔗 Autres fichiers de configuration
 
@@ -113,4 +81,7 @@ Spécification OpenAPI pour la configuration de l'API Gateway.
 - [Dashboard Configuration Reference](https://cloud.google.com/monitoring/api/ref_v3/rest/v1/projects.dashboards)
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 - [Cloud Trace Documentation](https://cloud.google.com/trace/docs)
+
+
+
 

@@ -1,0 +1,17 @@
+{
+  "displayName": "User Manager uptime check failed",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Uptime check failure",
+      "conditionAbsent": {
+        "filter": "resource.type=\"uptime_url\" AND metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.labels.check_id=\"user-manager-health\"",
+        "duration": "120s",
+        "trigger": {"count": 1}
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/serverless-ejguidon-dev/notificationChannels/1348070801769929671"
+  ]
+}
