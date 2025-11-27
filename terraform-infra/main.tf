@@ -71,6 +71,29 @@ resource "google_storage_bucket" "cf_src" {
   labels                      = var.labels
 }
 
+# Buckets GCS configurés dans les tfvars
+module "gcs_buckets" {
+  source   = "./modules/gcs-bucket"
+  for_each = var.gcs_buckets
+
+  project_id                  = var.project_id
+  bucket_name                 = each.value.bucket_name
+  location                    = coalesce(each.value.location, var.region)
+  storage_class               = coalesce(each.value.storage_class, "STANDARD")
+  public_read_access          = coalesce(each.value.public_read_access, false)
+  force_destroy               = coalesce(each.value.force_destroy, false)
+  uniform_bucket_level_access = coalesce(each.value.uniform_bucket_level_access, true)
+  versioning_enabled          = coalesce(each.value.versioning_enabled, false)
+  cors_enabled                = coalesce(each.value.cors_enabled, false)
+  cors_origins                = coalesce(each.value.cors_origins, ["*"])
+  cors_methods                = coalesce(each.value.cors_methods, ["GET", "HEAD"])
+  cors_response_headers       = coalesce(each.value.cors_response_headers, ["Content-Type", "Access-Control-Allow-Origin"])
+  cors_max_age_seconds        = coalesce(each.value.cors_max_age_seconds, 3600)
+  lifecycle_rules             = coalesce(each.value.lifecycle_rules, [])
+  iam_members                 = coalesce(each.value.iam_members, {})
+  labels                      = var.labels
+}
+
 # Note: Functions are deployed via gcloud CLI in GitHub Actions
 # Terraform creates the function infrastructure with minimal source, then gcloud CLI updates it
 module "functions" {

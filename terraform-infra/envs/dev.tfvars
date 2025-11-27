@@ -132,6 +132,31 @@ service_accounts = {
   }
 }
 
+gcs_buckets = {
+  "canvas-snapshots" = {
+    bucket_name        = "discord-canvas-snapshots-dev"
+    location           = "europe-west1"
+    storage_class      = "STANDARD"
+    public_read_access = true # Les snapshots doivent être accessibles publiquement
+    force_destroy      = true # Dev: autoriser destruction facile
+    cors_enabled       = true
+    cors_origins       = ["*"]
+    cors_methods       = ["GET", "HEAD"]
+    cors_response_headers = [
+      "Content-Type",
+      "Access-Control-Allow-Origin"
+    ]
+    cors_max_age_seconds = 3600
+    lifecycle_rules = [
+      {
+        action_type    = "Delete"
+        age            = 30 # Dev: nettoyer plus rapidement (30 jours)
+        matches_prefix = ["snapshots/"]
+      }
+    ]
+  }
+}
+
 
 
 

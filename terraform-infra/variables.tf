@@ -84,6 +84,41 @@ variable "service_accounts" {
   default = {}
 }
 
+variable "gcs_buckets" {
+  description = "Configuration des buckets Google Cloud Storage à créer"
+  type = map(object({
+    bucket_name                 = string
+    location                    = optional(string)
+    storage_class               = optional(string)
+    public_read_access          = optional(bool)
+    force_destroy               = optional(bool)
+    uniform_bucket_level_access = optional(bool)
+    versioning_enabled          = optional(bool)
+    cors_enabled                = optional(bool)
+    cors_origins                = optional(list(string))
+    cors_methods                = optional(list(string))
+    cors_response_headers       = optional(list(string))
+    cors_max_age_seconds        = optional(number)
+    lifecycle_rules = optional(list(object({
+      action_type                = string
+      storage_class              = optional(string)
+      age                        = optional(number)
+      created_before             = optional(string)
+      matches_prefix             = optional(list(string))
+      matches_suffix             = optional(list(string))
+      num_newer_versions         = optional(number)
+      with_state                 = optional(string)
+      days_since_custom_time     = optional(number)
+      days_since_noncurrent_time = optional(number)
+    })))
+    iam_members = optional(map(object({
+      role   = string
+      member = string
+    })))
+  }))
+  default = {}
+}
+
 
 
 
