@@ -35,7 +35,7 @@ resource "google_pubsub_subscription" "push_subscriptions" {
 
   push_config {
     push_endpoint = each.value.push_endpoint
-    
+
     oidc_token {
       service_account_email = each.value.service_account_email
     }
@@ -44,7 +44,7 @@ resource "google_pubsub_subscription" "push_subscriptions" {
   ack_deadline_seconds       = try(each.value.ack_deadline_seconds, 60)
   message_retention_duration = try(each.value.message_retention_duration, "604800s")
   retain_acked_messages      = try(each.value.retain_acked_messages, false)
-  
+
   labels = var.labels
 }
 
