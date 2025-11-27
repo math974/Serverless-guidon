@@ -53,6 +53,16 @@ paths:
           schema:
             type: string
   /web/interactions:
+    options:
+      summary: CORS preflight for web interactions
+      description: Handle CORS preflight requests
+      operationId: webInteractionsOptions
+      x-google-backend:
+        address: ${PROXY_URL}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Handle web interactions
       description: Endpoint for web client interactions. Routes to Proxy Service which publishes to Pub/Sub topics.
@@ -102,6 +112,16 @@ paths:
           schema:
             type: object
   /health:
+    options:
+      summary: CORS preflight for health check
+      description: Handle CORS preflight requests
+      operationId: healthCheckOptions
+      x-google-backend:
+        address: ${PROXY_URL}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     get:
       summary: Web service health check endpoint
       description: Endpoint for checking the health status of the proxy service
@@ -169,6 +189,16 @@ paths:
           schema:
             type: object
   /auth/logout:
+    options:
+      summary: CORS preflight for logout
+      description: Handle CORS preflight requests
+      operationId: authLogoutOptions
+      x-google-backend:
+        address: ${AUTH_URL}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Logout user
       description: Invalidates user session
@@ -199,6 +229,16 @@ paths:
           schema:
             type: object
   /auth/verify:
+    options:
+      summary: CORS preflight for verify
+      description: Handle CORS preflight requests
+      operationId: authVerifyOptions
+      x-google-backend:
+        address: ${AUTH_URL}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     post:
       summary: Verify session
       description: Verify if a session token is valid
@@ -233,6 +273,16 @@ paths:
           schema:
             type: object
   /auth/user:
+    options:
+      summary: CORS preflight for get user
+      description: Handle CORS preflight requests
+      operationId: authGetUserOptions
+      x-google-backend:
+        address: ${AUTH_URL}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: CORS preflight response
     get:
       summary: Get current user information
       description: Get user information from session
