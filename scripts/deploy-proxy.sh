@@ -55,9 +55,16 @@ if [ -z "${USER_MANAGER_URL:-}" ]; then
     USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
 fi
 
+if [ -z "${AUTH_SERVICE_URL:-}" ]; then
+    AUTH_SERVICE_URL=$(gcloud functions describe discord-auth-service --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+fi
+
 ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production"
 if [ ! -z "${USER_MANAGER_URL}" ]; then
     ENV_VARS="${ENV_VARS},USER_MANAGER_URL=${USER_MANAGER_URL}"
+fi
+if [ ! -z "${AUTH_SERVICE_URL}" ]; then
+    ENV_VARS="${ENV_VARS},AUTH_SERVICE_URL=${AUTH_SERVICE_URL}"
 fi
 
 echo "Deploying proxy..."
@@ -85,6 +92,11 @@ echo "Deployed: ${SERVICE_URL}"
 if [ ! -z "${USER_MANAGER_URL:-}" ]; then
   echo "Granting permission to invoke user-manager..."
   "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
+
+if [ ! -z "${AUTH_SERVICE_URL:-}" ]; then
+  echo "Granting permission to invoke auth-service..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "discord-auth-service" "${PROJECT_ID}" "${REGION}" || true
 fi
 
 # Grant API Gateway permission to invoke proxy
