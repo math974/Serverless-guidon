@@ -10,6 +10,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=discord-utils}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/discord-registrar}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -56,6 +57,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production" \
   --set-secrets="DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest,DISCORD_APPLICATION_ID=DISCORD_APPLICATION_ID:latest" \
   --timeout=300s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=512MB \
   2>&1 | grep -v "No change" || true
 

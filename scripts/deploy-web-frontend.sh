@@ -8,9 +8,13 @@ set -euo pipefail
 : "${SERVICE_NAME:=web-frontend}"
 : "${REGION:=europe-west1}"
 : "${SOURCE_DIR:=services/web-frontend}"
+: "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+echo "Preparing service..."
+"${SCRIPT_DIR}/prepare-services.sh"
 
 echo "Deploying ${SERVICE_NAME}..."
 
@@ -24,6 +28,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --timeout=120s \
+  --min-instances="${MIN_INSTANCES}" \
   --memory=256MB \
   2>&1 | grep -v "No change" || true
 

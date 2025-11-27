@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from command_registry import CommandHandler  # noqa: E402
 from shared.observability import init_observability  # noqa: E402
+from shared.processor_utils import get_authenticated_headers  # noqa: E402
 from shared.embed_utils import (  # noqa: E402
     create_error_embed,
     create_info_embed,
@@ -26,26 +27,6 @@ USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 logger, _ = init_observability('discord-processor-base-handlers', app=None)
 
 
-def get_auth_token():
-    """Get Google Cloud identity token for calling user-manager."""
-    try:
-        if not USER_MANAGER_URL:
-            logger.error("USER_MANAGER_URL not configured for identity token")
-            return None
-
-        from google.oauth2 import id_token
-        from google.auth.transport import requests
-
-        request_session = requests.Request()
-        target_audience = USER_MANAGER_URL
-
-        identity_token = id_token.fetch_id_token(request_session, target_audience)
-        return identity_token
-    except Exception as e:
-        logger.error("Failed to get identity token", error=e)
-    return None
-
-
 def get_user_id_from_interaction(interaction_data: dict) -> str:
     """Extract user ID from Discord interaction."""
     member = interaction_data.get('member')
@@ -60,13 +41,8 @@ def call_user_manager(endpoint: str, method: str = 'GET', data: dict = None, cor
         return None
 
     url = f"{USER_MANAGER_URL}{endpoint}"
-    headers = {'Content-Type': 'application/json'}
-    if correlation_id:
-        headers['X-Correlation-ID'] = correlation_id
-
-    auth_token = get_auth_token()
-    if auth_token:
-        headers['Authorization'] = f'Bearer {auth_token}'
+    headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
+    headers['Content-Type'] = 'application/json'
 
     try:
         if method == 'GET':
@@ -120,12 +96,19 @@ def handle_stats(interaction_data: dict):
         user = (member.get('user') if member else None) or interaction_data.get('user')
         if user:
             username = user.get('username', 'unknown')
+            discriminator = user.get('discriminator', '0')
+            full_username = f"{username}#{discriminator}" if discriminator != '0' else username
             existing_user = call_user_manager(f'/api/users/{user_id}', correlation_id=correlation_id)
             if not existing_user:
                 call_user_manager(
                     '/api/users',
                     method='POST',
-                    data={'user_id': user_id, 'username': username},
+                    data={
+                        'user_id': user_id,
+                        'username': full_username,
+                        'avatar': user.get('avatar'),
+                        'discriminator': discriminator
+                    },
                     correlation_id=correlation_id
                 )
 
@@ -187,6 +170,8 @@ def handle_leaderboard(interaction_data: dict):
     )
 
     fields = []
+    champion_thumbnail = None
+    author = None
     medals = ['🥇', '🥈', '🥉']
 
     # Top 3 with their information
@@ -196,12 +181,24 @@ def handle_leaderboard(interaction_data: dict):
         is_premium = user.get('is_premium', False)
         medal = medals[i]
         premium_badge = ' ⭐ Premium' if is_premium else ''
+        avatar_url = None
+        user_id = user.get('user_id')
+        if user_id:
+            avatar_url = get_user_avatar_url(
+                user_id,
+                user.get('avatar'),
+                user.get('discriminator', '0')
+            )
+        if i == 0 and avatar_url:
+            champion_thumbnail = create_user_thumbnail(avatar_url)
+            author = create_user_author(username, avatar_url)
+        mention_display = f"<@{user_id}>" if user_id else f"**{username}**"
 
         rank_name = ['Champion', 'Runner-up', 'Third Place'][i]
 
         fields.append({
             'name': f'{medal} {rank_name}',
-            'value': f'**{username}**\n**{total_draws}** pixels drawn{premium_badge}',
+            'value': f'{mention_display}\n**{total_draws}** pixels drawn{premium_badge}',
             'inline': True
         })
 
@@ -212,8 +209,10 @@ def handle_leaderboard(interaction_data: dict):
             total_draws = user.get('total_draws', 0)
             is_premium = user.get('is_premium', False)
             premium_badge = ' ⭐' if is_premium else ''
+            user_id = user.get('user_id')
+            mention_display = f"<@{user_id}>" if user_id else username
 
-            others.append(f"**{i}.** {username}{premium_badge} - **{total_draws}** pixels")
+            others.append(f"**{i}.** {mention_display}{premium_badge} - **{total_draws}** pixels")
 
         if others:
             fields.append({
@@ -222,19 +221,13 @@ def handle_leaderboard(interaction_data: dict):
                 'inline': False
             })
 
-    # Get first place user for author (small avatar + name)
-    first_place = leaderboard[0] if leaderboard else None
-    author = None
-    if first_place and first_place.get('user_id'):
-        avatar_url = get_user_avatar_url(first_place.get('user_id'))
-        author = create_user_author(first_place.get('username', 'Unknown'), avatar_url)
-
     embed = create_embed(
         title='Leaderboard',
         description='Top artists by total pixels drawn',
         color=COLOR_PREMIUM,
         fields=fields,
         footer={'text': 'Top 10 users by draws • Use /draw to climb the leaderboard!'},
+        thumbnail=champion_thumbnail,
         author=author
     )
 
@@ -287,7 +280,8 @@ def handle_register(interaction_data: dict):
         data={
             'user_id': user_id,
             'username': full_username,
-            'avatar': user.get('avatar')
+            'avatar': user.get('avatar'),
+            'discriminator': discriminator
         },
         correlation_id=correlation_id
     )
@@ -372,7 +366,12 @@ def handle_userinfo(interaction_data: dict):
                 call_user_manager(
                     '/api/users',
                     method='POST',
-                    data={'user_id': target_user_id, 'username': username},
+                    data={
+                        'user_id': target_user_id,
+                        'username': target_username,
+                        'avatar': user.get('avatar'),
+                        'discriminator': discriminator
+                    },
                     correlation_id=correlation_id
                 )
 

@@ -1,0 +1,49 @@
+{
+  "project": {
+    "id": "serverless-ejguidon-dev",
+    "region": "europe-west1",
+    "description": "Serverless Guidon Discord Bot Project"
+  },
+  "resources": {
+    "apis": {
+      "count": 11,
+      "file": "configs/gcp-apis.json"
+    },
+    "pubsub_topics": {
+      "count": 8,
+      "file": "configs/pubsub-topics.json"
+    },
+    "secrets": {
+      "count": 9,
+      "file": "configs/gcp-secrets.json"
+    },
+    "firestore": {
+      "database": "guidon-db",
+      "file": "configs/firestore-database.json"
+    },
+    "gcs_bucket": {
+      "name": "discord-canvas-snapshots",
+      "file": "configs/gcs-bucket.json"
+    },
+    "services": {
+      "count": 13,
+      "file": "configs/services-config.json"
+    }
+  },
+  "deployment_order": [
+    "1. Enable APIs (gcp-apis.json)",
+    "2. Create Pub/Sub topics (pubsub-topics.json)",
+    "3. Create secrets (gcp-secrets.json)",
+    "4. Create Firestore database (firestore-database.json)",
+    "5. Create GCS bucket (gcs-bucket.json)",
+    "6. Deploy services (services-config.json)"
+  ],
+  "notes": [
+    "All resources are configured for region: europe-west1",
+    "Secrets should be created with actual values from Discord Developer Portal",
+    "Service URLs (USER_MANAGER_URL, CANVAS_SERVICE_URL, WEB_FRONTEND_URL) should be set after deployment",
+    "Pub/Sub subscriptions are created automatically by Cloud Functions Gen2",
+    "IAM permissions are automatically granted to Cloud Functions service account"
+  ]
+}
+

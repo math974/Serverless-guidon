@@ -7,7 +7,7 @@ from functions_framework import cloud_event
 from cloudevents.http import CloudEvent
 
 from shared.observability import init_observability, traced_function
-from shared.processor_utils import process_discord_interaction
+from shared.processor_utils import process_interaction
 from shared.pubsub_handler import handle_processor_response
 from command_registry import CommandHandler
 
@@ -100,7 +100,7 @@ def processor_base_handler(cloud_event: CloudEvent):
             command_name=command_name
         )
 
-        response = process_discord_interaction(
+        response = process_interaction(
             interaction, CommandHandler, correlation_id, logger
         )
 

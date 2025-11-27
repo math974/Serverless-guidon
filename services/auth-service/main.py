@@ -288,6 +288,15 @@ def get_discord_user_info(access_token: str, correlation_id: str = None) -> dict
     return None
 
 
+def add_cors_headers(response):
+    """Add CORS headers to response."""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Session-ID, X-Correlation-ID, Authorization'
+    response.headers['Access-Control-Max-Age'] = '3600'
+    return response
+
+
 @http
 @with_correlation(logger)
 @traced_function("auth_handler")
@@ -299,8 +308,15 @@ def auth_handler(request: Request):
     path = request.path
     method = request.method
 
+    # Handle CORS preflight requests
+    if method == 'OPTIONS':
+        response = make_response('', 200)
+        return add_cors_headers(response)
+
     if path == '/health' and method == 'GET':
-        return handle_health(request)
+        result = handle_health(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     elif path == '/auth/login' and method == 'GET':
         return handle_login(request)
@@ -309,16 +325,24 @@ def auth_handler(request: Request):
         return handle_callback(request)
 
     elif path == '/auth/logout' and method == 'POST':
-        return handle_logout(request)
+        result = handle_logout(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     elif path == '/auth/verify' and method == 'POST':
-        return handle_verify(request)
+        result = handle_verify(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     elif path == '/auth/user' and method == 'GET':
-        return handle_get_user(request)
+        result = handle_get_user(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     elif path == '/auth/sessions/active' and method == 'GET':
-        return handle_active_sessions(request)
+        result = handle_active_sessions(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     else:
         correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
@@ -328,11 +352,14 @@ def auth_handler(request: Request):
             path=path,
             method=method
         )
-        return jsonify({
+        response = jsonify({
             'error': 'Not Found',
             'path': path,
             'method': method
         }), 404
+        if isinstance(response, tuple):
+            response = make_response(response[0], response[1])
+        return add_cors_headers(response)
 
 
 @traced_function("handle_health")

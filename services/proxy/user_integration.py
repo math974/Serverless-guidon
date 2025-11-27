@@ -3,26 +3,15 @@ import os
 import requests
 from typing import Optional, Dict, Tuple
 from shared.observability import init_observability
+from shared.processor_utils import get_authenticated_headers
 
 logger, _ = init_observability('discord-proxy', app=None)
 
 # User manager service URL
 USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', '')
 
-
-def get_auth_token() -> Optional[str]:
-    """Get Google Cloud identity token for calling user-manager."""
-    if not USER_MANAGER_URL:
-        return None
-    try:
-        from google.oauth2 import id_token
-        from google.auth.transport import requests as google_requests
-        request_session = google_requests.Request()
-        target_audience = USER_MANAGER_URL
-        return id_token.fetch_id_token(request_session, target_audience)
-    except Exception as e:
-        logger.warning("Failed to get identity token for user-manager", error=e)
-        return None
+# Timeout for user-manager requests (in seconds)
+USER_MANAGER_TIMEOUT = float(os.getenv('USER_MANAGER_TIMEOUT', '10'))
 
 
 def get_user_id_from_interaction(interaction: dict) -> Optional[str]:
@@ -66,20 +55,23 @@ def is_user_registered(
         return False
 
     try:
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
+        headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
 
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         return user_response.status_code == 200
+    except requests.exceptions.Timeout:
+        logger.warning(
+            "Timeout checking if user is registered",
+            correlation_id=correlation_id,
+            user_id=user_id,
+            timeout=USER_MANAGER_TIMEOUT
+        )
+        return False
     except Exception as e:
         logger.warning(
             "Error checking if user is registered",
@@ -116,19 +108,15 @@ def check_user_allowed(
         return True, None, None
 
     try:
-        # Get authentication token
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
+        # Get authenticated headers
+        headers = get_authenticated_headers(USER_MANAGER_URL, correlation_id, logger)
+        headers['Content-Type'] = 'application/json'
 
         # First, get user to check if banned and get premium status
         user_response = requests.get(
             f"{USER_MANAGER_URL}/api/users/{user_id}",
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         is_premium = False
@@ -168,7 +156,7 @@ def check_user_allowed(
                 'is_premium': is_premium
             },
             headers=headers,
-            timeout=2
+            timeout=USER_MANAGER_TIMEOUT
         )
 
         if rate_limit_response.status_code == 429:
@@ -220,133 +208,6 @@ def check_user_allowed(
             command=command
         )
         return True, None, None
-
-
-def create_or_update_user(
-    user_id: str,
-    username: str,
-    correlation_id: Optional[str] = None,
-    **kwargs
-) -> bool:
-    """Create or update user in user-manager.
-
-    Args:
-        user_id: Discord user ID
-        username: Discord username
-        correlation_id: Correlation ID for logging
-        **kwargs: Additional user data
-
-    Returns:
-        True if successful, False otherwise
-    """
-    if not USER_MANAGER_URL:
-        return False
-
-    try:
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
-
-        response = requests.post(
-            f"{USER_MANAGER_URL}/api/users",
-            json={
-                'user_id': user_id,
-                'username': username,
-                **kwargs
-            },
-            headers=headers,
-            timeout=2
-        )
-
-        if response.status_code == 200:
-            logger.debug(
-                "User created/updated",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                username=username
-            )
-            return True
-        else:
-            logger.warning(
-                "Failed to create/update user",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                status_code=response.status_code
-            )
-            return False
-
-    except Exception as e:
-        logger.error(
-            "Error creating/updating user",
-            error=e,
-            correlation_id=correlation_id,
-            user_id=user_id
-        )
-        return False
-
-
-def increment_user_usage(
-    user_id: str,
-    command: str,
-    correlation_id: Optional[str] = None
-) -> bool:
-    """Increment user usage counter.
-
-    Args:
-        user_id: Discord user ID
-        command: Command name
-        correlation_id: Correlation ID for logging
-
-    Returns:
-        True if successful, False otherwise
-    """
-    if not USER_MANAGER_URL:
-        return False
-
-    try:
-        auth_token = get_auth_token()
-        headers = {}
-        if correlation_id:
-            headers['X-Correlation-ID'] = correlation_id
-        if auth_token:
-            headers['Authorization'] = f'Bearer {auth_token}'
-
-        response = requests.post(
-            f"{USER_MANAGER_URL}/api/users/{user_id}/increment",
-            json={'command': command},
-            headers=headers,
-            timeout=2
-        )
-
-        if response.status_code == 200:
-            logger.debug(
-                "User usage incremented",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                command=command
-            )
-            return True
-        else:
-            logger.warning(
-                "Failed to increment user usage",
-                correlation_id=correlation_id,
-                user_id=user_id,
-                status_code=response.status_code
-            )
-            return False
-
-    except Exception as e:
-        logger.error(
-            "Error incrementing user usage",
-            error=e,
-            correlation_id=correlation_id,
-            user_id=user_id
-        )
-        return False
-
 
 def get_rate_limit_error_response(
     rate_limit_info: Dict,

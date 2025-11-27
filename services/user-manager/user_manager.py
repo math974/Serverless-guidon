@@ -210,13 +210,16 @@ class UserManager:
         user_id: str,
         command: str,
         correlation_id: Optional[str] = None
-    ):
-        """Increment usage counters.
+    ) -> Optional[int]:
+        """Increment usage counters and return the new value.
 
         Args:
             user_id: Discord user ID
             command: Command name
             correlation_id: Correlation ID for logging
+
+        Returns:
+            New total_draws value if command is 'draw', None otherwise
         """
         updates = {
             'updated_at': firestore.SERVER_TIMESTAMP
@@ -224,18 +227,51 @@ class UserManager:
 
         if command == 'draw':
             updates['total_draws'] = firestore.Increment(1)
+            doc_ref = self.users_collection.document(user_id)
 
-        self.users_collection.document(user_id).set(updates, merge=True)
+            doc_ref.set(updates, merge=True)
 
-        # --- Invalidate cache ---
-        cache.delete(f"user:{user_id}")
+            cache.delete(f"user:{user_id}")
 
-        logger.debug(
-            "User usage incremented",
-            correlation_id=correlation_id,
-            user_id=user_id,
-            command=command
-        )
+            try:
+                updated_doc = doc_ref.get()
+                if updated_doc.exists:
+                    new_total = updated_doc.to_dict().get('total_draws', 0)
+                    logger.debug(
+                        "User usage incremented",
+                        correlation_id=correlation_id,
+                        user_id=user_id,
+                        command=command,
+                        new_total_draws=new_total
+                    )
+                    return new_total
+                else:
+                    logger.debug(
+                        "User usage incremented (new user)",
+                        correlation_id=correlation_id,
+                        user_id=user_id,
+                        command=command,
+                        new_total_draws=1
+                    )
+                    return 1
+            except Exception as e:
+                logger.warning(
+                    "Could not read back incremented value",
+                    error=e,
+                    correlation_id=correlation_id,
+                    user_id=user_id
+                )
+                return None
+        else:
+            self.users_collection.document(user_id).set(updates, merge=True)
+            cache.delete(f"user:{user_id}")
+            logger.debug(
+                "User usage incremented",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                command=command
+            )
+            return None
 
     def ban_user(
         self,

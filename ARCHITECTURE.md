@@ -3,209 +3,639 @@
 ## Overview
 
 ```
-Discord → API Gateway → Proxy Service → Pub/Sub Topics → Processor Services → Proxy → Discord
+Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor Services → Webhooks (Discord/Web)
 ```
 
-**Note**: Proxy handles all Discord requests (centralized secrets).
+**Note**: Microservices architecture with separation of concerns and specialized services.
 
-## Components
+## Main Flow Diagram
 
-### 1. **API Gateway** (GCP API Gateway)
+### Discord Bot Flow
 
-- **Role**: Single entry point, traffic management, security
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DISCORD BOT INTERACTION                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          API GATEWAY (GCP)                                   │
+│  • Single entry point                                                        │
+│  • URL: https://guidon-*.ew.gateway.dev                                     │
+│  • Endpoints:                                                                │
+│    - POST /discord/interactions (Discord bot)                                │
+│    - POST /web/interactions (Web clients)                                    │
+│    - GET /health                                                             │
+│    - GET /auth/* (Auth service)                                              │
+│    - GET /* (Web frontend)                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROXY SERVICE (Cloud Functions Gen2)                │
+│  Service: proxy                                                              │
+│  Authentication: Private (IAM - API Gateway only)                            │
+│  Secrets: DISCORD_PUBLIC_KEY, DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID     │
+│                                                                              │
+│  Steps:                                                                      │
+│  1. Verify Discord signature (DISCORD_PUBLIC_KEY)                         │
+│  2. Parse interaction                                                     │
+│  3. Handle simple commands directly (ping, hello)                        │
+│  4. For complex commands → Publish to Pub/Sub                            │
+│  5. Respond immediately to Discord (type 5 - deferred)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+          ┌─────────▼─────────┐         ┌─────────▼─────────┐
+          │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
+          │  (ping, hello)     │         │  (help, draw, etc)│
+          │                   │         │                    │
+          │  Direct response  │         │  Type 5 (deferred) │
+          │  Type 4           │         │  + Pub/Sub         │
+          └───────────────────┘         └────────────────────┘
+                                                    │
+                                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PUB/SUB TOPICS (GCP)                                │
+│                                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │ interactions │  │commands-base│  │commands-draw  │  │commands-     │    │
+│  │              │  │             │  │              │  │ snapshot     │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
+│                                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │commands-     │  │commands-stats│  │commands-     │  │commands-     │    │
+│  │canvas-state  │  │              │  │colors        │  │pixel-info    │    │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
+│                                                                              │
+│  All topics trigger Cloud Functions Gen2 via Eventarc                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+            │                    │                    │
+            │                    │                    │
+            ▼                    ▼                    ▼
+┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
+│  PROCESSOR-BASE      │  │  PROCESSOR-DRAW     │  │  PROCESSOR-*        │
+│  (Cloud Functions)   │  │  (Cloud Functions)  │  │  (Cloud Functions)  │
+│                      │  │                      │  │                      │
+│  Steps:              │  │  Steps:              │  │  Steps:              │
+│  1. Receive message   │  │  1. Receive message   │  │  1. Receive message   │
+│  2. Process command   │  │  2. Check rate limit  │  │  2. Process command   │
+│  3. Send to Discord   │  │     (user-manager)    │  │  3. Call canvas-      │
+│     via webhook       │  │  3. Draw pixel         │  │     service           │
+│     (direct)          │  │     (canvas-service)   │  │  4. Send to Discord/  │
+│                      │  │  4. Increment usage    │  │     Web via webhook   │
+│                      │  │     (user-manager)     │  │     (direct)          │
+│                      │  │  5. Send to Discord    │  │                      │
+│                      │  │     via webhook        │  │                      │
+│                      │  │     (direct)           │  │                      │
+└─────────────────────┘  └─────────────────────┘  └─────────────────────┘
+            │                    │                    │
+            │                    │                    │
+            └────────────────────┴────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              DISCORD                                        │
+│  User receives bot response (via webhook)                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Web Client Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           WEB CLIENT INTERACTION                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          API GATEWAY (GCP)                                   │
+│  Endpoint: POST /web/interactions                                           │
+│  Headers: Authorization: Bearer <session_token>                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROXY SERVICE (Cloud Functions Gen2)                │
+│  Service: proxy                                                              │
+│                                                                              │
+│  Steps:                                                                      │
+│  1. Verify session (auth-service)                                        │
+│  2. Parse JSON request                                                   │
+│  3. Handle simple commands directly (ping, hello, help)                  │
+│  4. For complex commands → Publish to Pub/Sub                            │
+│  5. Return JSON response (immediate or 202 Accepted)                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+          ┌─────────▼─────────┐         ┌─────────▼─────────┐
+          │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
+          │  (ping, hello,     │         │  (draw, snapshot) │
+          │   help)            │         │                    │
+          │                   │         │                    │
+          │  Direct JSON      │         │  202 Accepted      │
+          │  response (200)   │         │  + Pub/Sub         │
+          └───────────────────┘         └────────────────────┘
+                                                    │
+                                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PUB/SUB TOPICS (GCP)                                │
+│  Same topics as Discord flow                                                │
+│  All topics trigger Cloud Functions Gen2 via Eventarc                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PROCESSOR SERVICES (Cloud Functions Gen2)                │
+│  Same processors as Discord flow                                            │
+│                                                                              │
+│  Steps:                                                                      │
+│  1. Receive Pub/Sub message (via Eventarc)                                   │
+│  2. Process command                                                          │
+│  3. Send response to provided webhook URL (direct)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              WEB CLIENT                                      │
+│  Receives JSON response (via webhook callback)                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Services Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         DATA SERVICES                                        │
+│                                                                              │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
+│  │  CANVAS-SERVICE             │  │  USER-MANAGER               │           │
+│  │  (Cloud Functions Gen2)     │  │  (Cloud Functions Gen2)    │           │
+│  │  Authentication: Private     │  │  Authentication: Private    │           │
+│  │  (Identity Tokens)          │  │  (Identity Tokens)         │           │
+│  │                             │  │                             │           │
+│  │  REST API:                  │  │  REST API:                  │           │
+│  │  • POST /canvas/draw        │  │  • GET /api/users/{id}      │           │
+│  │  • GET /canvas/state        │  │  • POST /api/users/{id}/    │           │
+│  │  • POST /canvas/snapshot    │  │    increment                │           │
+│  │  • GET /canvas/stats        │  │  • POST /api/rate-limit/    │           │
+│  │  • GET /canvas/pixel/{x}/{y}│  │    check                    │           │
+│  │                             │  │  • GET /api/stats/          │           │
+│  │  Storage:                   │  │    leaderboard              │           │
+│  │  • Firestore (canvas state) │  │                             │           │
+│  │  • GCS (snapshots)          │  │  Storage:                   │           │
+│  │                             │  │  • Firestore (users)        │           │
+│  └─────────────────────────────┘  └─────────────────────────────┘           │
+│                                                                              │
+│  ┌─────────────────────────────┐                                            │
+│  │  AUTH-SERVICE               │                                            │
+│  │  (Cloud Functions Gen2)     │                                            │
+│  │  Authentication: Public     │                                            │
+│  │                             │                                            │
+│  │  REST API:                  │                                            │
+│  │  • GET /auth/login          │                                            │
+│  │  • GET /auth/callback       │                                            │
+│  │  • POST /auth/verify        │                                            │
+│  │  • GET /auth/user           │                                            │
+│  │  • POST /auth/logout        │                                            │
+│  │                             │                                            │
+│  │  Storage:                   │                                            │
+│  │  • Firestore (sessions)      │                                            │
+│  └─────────────────────────────┘                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+            ▲                    ▲                    ▲
+            │                    │                    │
+            │                    │                    │
+            └────────────────────┴────────────────────┘
+                           │
+                           │ (Identity Token Auth)
+                           │
+            ┌───────────────┴───────────────┐
+            │                               │
+    ┌───────▼────────┐            ┌─────────▼────────┐
+    │  PROCESSORS    │            │  PROXY           │
+    │  (via shared   │            │  (for web        │
+    │   clients)     │            │   auth)          │
+    └────────────────┘            └──────────────────┘
+```
+
+## Detailed Flow by Command Type
+
+### 1. Simple Command (ping, hello, help) - < 1 second
+
+#### Discord Flow
+
+```
+Discord → API Gateway → Proxy
+                          │
+                          ├─► Verify signature
+                          ├─► Process directly
+                          └─► Respond to Discord (Type 4)
+```
+
+#### Web Flow
+
+```
+Web Client → API Gateway → Proxy
+                              │
+                              ├─► Verify session (auth-service)
+                              ├─► Parse JSON
+                              ├─► Process directly
+                              └─► Return JSON (200 OK)
+```
+
+**Total time: < 1 second**
+
+### 2. Complex Command (draw, snapshot) - < 3 seconds
+
+#### Discord Flow
+
+```
+Discord → API Gateway → Proxy
+                          │
+                          ├─► Verify signature
+                          ├─► Publish to Pub/Sub
+                          └─► Respond to Discord (Type 5 - deferred)
+                                 │
+                                 ▼
+                          Pub/Sub Topic (commands-draw)
+                                 │
+                                 ▼ (Eventarc trigger)
+                          Processor-Draw (Cloud Functions Gen2)
+                                 │
+                          ├─► Check rate limit (user-manager via identity token)
+                          ├─► Draw pixel (canvas-service via identity token)
+                          ├─► Increment usage (user-manager via identity token)
+                          ├─► Generate response
+                          └─► Send directly to Discord via webhook
+                                 │
+                                 ▼
+                          Discord displays response
+```
+
+#### Web Flow
+
+```
+Web Client → API Gateway → Proxy
+                              │
+                              ├─► Verify session (auth-service)
+                              ├─► Publish to Pub/Sub
+                              └─► Return 202 Accepted
+                                     │
+                                     ▼
+                              Pub/Sub Topic (commands-draw)
+                                     │
+                                     ▼ (Eventarc trigger)
+                              Processor-Draw (Cloud Functions Gen2)
+                                     │
+                              ├─► Process command (same logic as Discord)
+                              └─► Send response to provided webhook URL
+                                     │
+                                     ▼
+                              Web client receives response
+```
+
+**Total time:**
+
+- **Discord**: Initial response < 3 seconds (Type 5), Final response up to 15 minutes (via webhook)
+- **Web**: Initial response < 3 seconds (202 Accepted), Final response via webhook callback
+
+## Components and Responsibilities
+
+### API Gateway
+
+- **Role**: Single entry point, traffic management
 - **URL**: `https://guidon-*.ew.gateway.dev`
 - **Endpoints**:
-  - `POST /discord/interactions` → Proxy Service
-  - `GET /health` → Proxy Service
-- **Benefits**:
-  - Single stable entry point
-  - Traffic management and rate limiting
-  - Centralized monitoring
-  - No need to expose Cloud Run services directly
+  - `POST /discord/interactions` → Proxy (Discord bot)
+  - `POST /web/interactions` → Proxy (Web clients)
+  - `GET /health` → Proxy
+  - `GET /auth/*` → Auth Service
+  - `GET /*` → Web Frontend
+- **Authentication**: IAM - Only API Gateway service account can invoke proxy
 
-### 2. **Proxy Service** (`proxy/`)
+### Proxy Service
 
-- **Role**: Central point for all Discord interactions
-- **Cloud Run Service**: `discord-proxy`
+- **Service**: `proxy`
+- **Authentication**: Private (IAM - API Gateway only)
 - **Secrets**: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
-- **Functions**:
-  - ✅ Verifies Discord signatures (security)
-  - ✅ Handles simple commands directly (ping, hello)
-  - ✅ Routes complex commands to Pub/Sub
-  - ✅ Receives processor responses (`POST /discord/response`)
-  - ✅ Sends all responses to Discord (centralized)
-- **Pub/Sub Topics used**:
-  - `discord-commands-base`: for `/hello`, `/ping`, `/help`
-  - `discord-commands-art`: for `/draw`, `/snapshot`
-  - `discord-interactions`: for other interactions
+- **Responsibilities**:
+  - Discord signature verification (for Discord interactions)
+  - Web session authentication (for web interactions via auth-service)
+  - Simple command handling (ping, hello, help) - both Discord and Web
+  - Publishing to Pub/Sub for complex commands
+  - No longer handles processor responses (processors send directly via webhooks)
 
-### 3. **Pub/Sub Topics** (GCP Pub/Sub)
+### Pub/Sub Topics
 
-- **Role**: Asynchronous message queue, service decoupling
-- **Topics**:
-  - `discord-commands-base` → Processor-Base
-  - `discord-commands-art` → Processor-Art
-  - `discord-interactions` → (optional, for monitoring)
-- **Benefits**:
-  - Complete decoupling between Proxy and Processors
-  - Automatic scalability
-  - Message delivery guarantee
-  - Isolation: if one processor crashes, others continue
+- **interactions**: General interactions
+- **commands-base**: Base commands (hello, ping, help)
+- **commands-draw**: Draw command
+- **commands-snapshot**: Snapshot command
+- **commands-canvas-state**: Canvas state command
+- **commands-stats**: Stats command
+- **commands-colors**: Colors command
+- **commands-pixel-info**: Pixel info command
 
-### 4. **Processor Services** (Cloud Run)
+### Processor Services
 
-- **Processor-Base** (`processor-base/`)
+All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
-  - Processes: `/hello`, `/ping`, `/help`
-  - Service: `discord-processor-base`
-  - Subscription: `discord-commands-base-sub`
-  - Secrets: None (proxy handles Discord)
-  - Sends responses to proxy via `POST /discord/response`
+#### Processor-Base
 
-- **Processor-Art** (`processor-art/`)
-  - Processes: `/draw`, `/snapshot`
-  - Service: `discord-processor-art`
-  - Subscription: `discord-commands-art-sub`
-  - Secrets: None (proxy handles Discord)
-  - Sends responses to proxy via `POST /discord/response`
+- **Service**: `processor-base`
+- **Topic**: `commands-base`
+- **Secrets**: `DISCORD_BOT_TOKEN` (for Discord webhooks)
+- **Responsibilities**:
+  - Process base commands (ping, hello, help)
+  - Send responses directly to Discord/web via webhooks
 
-## Complete Flow
+#### Processor-Draw
 
-### Example: `/ping` Command
+- **Service**: `processor-draw`
+- **Topic**: `commands-draw`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**:
+  - `canvas-service` (REST API via identity token)
+  - `user-manager` (REST API via identity token)
+- **Responsibilities**:
+  - Check rate limits
+  - Draw pixels on canvas
+  - Increment user usage
+  - Send responses directly to Discord/web via webhooks
+
+#### Processor-Snapshot
+
+- **Service**: `processor-snapshot`
+- **Topic**: `commands-snapshot`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**:
+  - `canvas-service` (REST API via identity token)
+  - `user-manager` (REST API via identity token)
+- **Responsibilities**:
+  - Create canvas snapshots
+  - Send responses directly to Discord/web via webhooks
+
+#### Processor-Canvas-State
+
+- **Service**: `processor-canvas-state`
+- **Topic**: `commands-canvas-state`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**:
+  - `canvas-service` (REST API via identity token)
+- **Responsibilities**:
+  - Get canvas state as JSON
+  - Send responses directly to Discord/web via webhooks
+
+#### Processor-Stats
+
+- **Service**: `processor-stats`
+- **Topic**: `commands-stats`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**:
+  - `canvas-service` (REST API via identity token)
+  - `user-manager` (REST API via identity token)
+- **Responsibilities**:
+  - Get canvas and user statistics
+  - Send responses directly to Discord/web via webhooks
+
+#### Processor-Colors
+
+- **Service**: `processor-colors`
+- **Topic**: `commands-colors`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**: None (stateless)
+- **Responsibilities**:
+  - List available colors
+  - Send responses directly to Discord/web via webhooks
+
+#### Processor-Pixel-Info
+
+- **Service**: `processor-pixel-info`
+- **Topic**: `commands-pixel-info`
+- **Secrets**: `DISCORD_BOT_TOKEN`
+- **Dependencies**:
+  - `canvas-service` (REST API via identity token)
+- **Responsibilities**:
+  - Get pixel information
+  - Send responses directly to Discord/web via webhooks
+
+### Data Services
+
+#### Canvas Service
+
+- **Service**: `canvas-service`
+- **Authentication**: Private (identity tokens)
+- **Role**: Data layer for canvas operations
+- **Storage**: Firestore (canvas state), GCS (snapshots)
+- **Configuration**: `setting.json`
+
+#### User Manager
+
+- **Service**: `user-manager`
+- **Authentication**: Private (identity tokens)
+- **Role**: User management, rate limiting, statistics
+- **Storage**: Firestore (users collection)
+
+#### Auth Service
+
+- **Service**: `discord-auth-service`
+- **Authentication**: Public
+- **Role**: OAuth2 authentication for web clients
+- **Storage**: Firestore (sessions collection)
+
+### Frontend Services
+
+#### Web Frontend
+
+- **Service**: `web-frontend`
+- **Authentication**: Public
+- **Role**: Web interface for canvas
+- **Pages**: Login, Canvas, Session (legacy)
+
+#### Discord Registrar
+
+- **Service**: `discord-utils`
+- **Authentication**: Public
+- **Secrets**: `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
+- **Role**: Register Discord slash commands
+
+## Authentication and Security
+
+### Service Authentication
 
 ```
-1. Discord user types `/ping`
-   ↓
-2. Discord sends interaction to API Gateway
-   https://guidon-*.ew.gateway.dev/discord/interactions
-   ↓
-3. API Gateway routes to Proxy Service
-   https://discord-proxy-*.run.app/discord/interactions
-   ↓
-4. Proxy Service :
-   - Verifies Discord signature ✓
-   - Detects `/ping` (simple command)
-   - Responds directly to Discord (Type 4)
-   ↓
-5. Discord displays response to user
+┌─────────────────────────────────────────────────────────┐
+│                    AUTHENTICATION                        │
+│                                                          │
+│  Public Services:                                        │
+│  • web-frontend (public access)                         │
+│  • auth-service (public access)                          │
+│  • discord-registrar (public access)                     │
+│                                                          │
+│  Private Services (IAM):                                 │
+│  • proxy (API Gateway service account only)              │
+│  • user-manager (identity tokens)                        │
+│  • canvas-service (identity tokens)                     │
+│  • processor-* (Eventarc service account only)           │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Example: `/help` Command (Complex)
+### Service-to-Service Communication
+
+- **Identity Tokens**: Services use Google Cloud identity tokens for authentication
+- **Shared Clients**:
+  - `shared/canvas_client.py` - Client for canvas-service (identity token auth)
+  - `shared/user_client.py` - Client for user-manager (identity token auth)
+
+### Web Client Authentication
+
+- **OAuth2 Flow**: Web clients authenticate via Discord OAuth2 (auth-service)
+- **Session Tokens**: Validated by proxy before processing web interactions
+- **Session Storage**: Firestore (sessions collection)
+
+## Secret Management
 
 ```
-1. Discord user types `/help`
-   ↓
-2. Discord → API Gateway → Proxy Service
-   ↓
-3. Proxy Service :
-   - Verifies signature ✓
-   - Detects `/help` (base command)
-   - Publishes to topic `discord-commands-base`
-   - Responds to Discord (Type 5 - deferred)
-   ↓
-4. Pub/Sub sends message to Processor-Base
-   via subscription `discord-commands-base-sub`
-   ↓
-5. Processor-Base :
-   - Processes `/help` command
-   - Generates response
-   - Sends response to Proxy (POST /discord/response)
-   ↓
-6. Proxy receives response and sends to Discord via webhook
-   ↓
-7. Discord displays response to user
+┌─────────────────────────────────────────────────────────┐
+│              SECRET MANAGER (GCP)                       │
+│                                                          │
+│  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ DISCORD_PUBLIC_  │  │ DISCORD_BOT_     │              │
+│  │ KEY              │  │ TOKEN            │              │
+│  └──────────────────┘  └──────────────────┘              │
+│                                                          │
+│  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ DISCORD_         │  │ DISCORD_CLIENT_  │              │
+│  │ APPLICATION_ID   │  │ ID/SECRET        │              │
+│  └──────────────────┘  └──────────────────┘              │
+└─────────────────────────────────────────────────────────┘
+            │                    │                    │
+            │                    │                    │
+            ▼                    ▼                    ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  PROXY           │  │  REGISTRAR       │  │  PROCESSORS      │
+│  ✅ All secrets  │  │  ✅ BOT_TOKEN    │  │  ✅ BOT_TOKEN    │
+│                  │  │  ✅ APP_ID       │  │     (webhooks)   │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
 
-### Example: `/draw` Command
+## Available Endpoints
 
-```
-1. Discord user types `/draw x:10 y:20 color:#FF0000`
-   ↓
-2. Discord → API Gateway → Proxy Service
-   ↓
-3. Proxy Service :
-   - Verifies signature ✓
-   - Detects `/draw` (art command)
-   - Publishes to topic `discord-commands-art`
-   - Responds to Discord (Type 5 - deferred)
-   ↓
-4. Pub/Sub sends to Processor-Art
-   ↓
-5. Processor-Art :
-   - Processes `/draw` command
-   - (Drawing logic here)
-   - Sends response to Proxy (POST /discord/response)
-   ↓
-6. Proxy receives response and sends to Discord via webhook
-   ↓
-7. Discord displays response
-```
+### API Gateway
 
-## Isolation and Resilience
+- `POST /discord/interactions` - Discord bot interactions
+- `POST /web/interactions` - Web client interactions
+- `GET /health` - Health check
+- `GET /auth/*` - Auth service endpoints
+- `GET /*` - Web frontend pages
 
-### If Processor-Art crashes:
+### Proxy Service
 
-- ✅ Processor-Base continues to work
-- ✅ Commands `/ping`, `/hello`, `/help` still work
-- ✅ Only `/draw` and `/snapshot` commands are affected
+- `POST /discord/interactions` - Receives Discord interactions (with signature verification)
+- `POST /web/interactions` - Receives web client interactions (with session verification)
+- `GET /health` - Health check
 
-### If Processor-Base crashes:
+### Data Services
 
-- ✅ Processor-Art continues to work
-- ✅ Commands `/draw` and `/snapshot` still work
-- ✅ Only base commands are affected
+#### Canvas Service
 
-### If Proxy Service crashes:
+- `POST /canvas/draw` - Draw a pixel
+- `GET /canvas/state` - Get canvas state (JSON)
+- `POST /canvas/snapshot` - Create a snapshot
+- `GET /canvas/stats` - Canvas statistics
+- `GET /canvas/pixel/{x}/{y}` - Pixel information
+- `GET /health` - Health check
 
-- ❌ No commands work (single entry point)
-- ✅ But messages in Pub/Sub are preserved
-- ✅ Once Proxy restarts, messages are processed
+#### User Manager
+
+- `GET /api/users/{user_id}` - Get a user
+- `POST /api/users` - Create/update a user
+- `POST /api/users/{user_id}/increment` - Increment usage
+- `POST /api/rate-limit/check` - Check rate limit
+- `GET /api/rate-limit/{user_id}` - Rate limit information
+- `GET /api/stats/leaderboard` - Leaderboard
+- `GET /health` - Health check
+
+#### Auth Service
+
+- `GET /auth/login` - Start OAuth2 flow
+- `GET /auth/callback` - OAuth2 callback
+- `POST /auth/verify` - Verify a session
+- `GET /auth/user` - Get current user
+- `POST /auth/logout` - Logout
+- `GET /health` - Health check
+
+### Processor Services
+
+- `POST /` - Receives Pub/Sub messages (via Eventarc trigger)
+- `GET /health` - Health check (if implemented)
+
+### Registrar Service
+
+- `POST /register` - Register all commands
+- `POST /register/{command_name}` - Register specific command
+- `GET /commands` - List all defined commands
+- `GET /health` - Health check
 
 ## Deployment
 
 ### Recommended order:
 
-1. **Create Pub/Sub topics**
+1. **Create base GCP resources**
 
    ```bash
-   ./scripts/setup-pubsub.sh
+   make setup-all
    ```
 
-2. **Deploy Proxy Service**
+2. **Create secrets**
 
    ```bash
-   ./scripts/deploy-proxy.sh
+   # See configs/gcp-secrets.json for complete list
    ```
 
-3. **Deploy Processor Services**
+3. **Create Pub/Sub topics**
 
    ```bash
-   ./scripts/deploy-processor-base.sh
-   ./scripts/deploy-processor-art.sh
+   make setup-microservices-pubsub
    ```
 
-4. **Create Pub/Sub subscriptions**
+4. **Deploy data services**
 
    ```bash
-   # After retrieving processor URLs
-   gcloud pubsub subscriptions create discord-commands-base-sub \
-     --topic=discord-commands-base \
-     --push-endpoint=<PROCESSOR_BASE_URL>/ \
-     --project=$PROJECT_ID
-
-   gcloud pubsub subscriptions create discord-commands-art-sub \
-     --topic=discord-commands-art \
-     --push-endpoint=<PROCESSOR_ART_URL>/ \
-     --project=$PROJECT_ID
+   make deploy-user-manager
+   make deploy-canvas-service
    ```
 
-5. **Configure API Gateway**
+5. **Deploy Proxy**
 
    ```bash
-   ./scripts/update-gateway-proxy.sh
+   make deploy-proxy
    ```
 
-6. **Configure Discord**
+6. **Deploy frontend services**
+
+   ```bash
+   make deploy-web-frontend
+   make deploy-auth
+   make deploy-registrar
+   ```
+
+7. **Deploy Processors**
+
+   ```bash
+   make deploy-processors
+   ```
+
+8. **Configure API Gateway**
+
+   ```bash
+   make update-gateway
+   ```
+
+9. **Configure Discord**
    - Set API Gateway URL in Discord settings
    - `https://guidon-*.ew.gateway.dev/discord/interactions`
 
@@ -214,7 +644,12 @@ Discord → API Gateway → Proxy Service → Pub/Sub Topics → Processor Servi
 1. **Complete Isolation**: Each service can crash without affecting others
 2. **Scalability**: Each service scales independently
 3. **Maintenance**: Update one service without affecting others
-4. **Security**: API Gateway as single entry point
+4. **Security**: API Gateway as single entry point, private services with IAM
 5. **Reliability**: Pub/Sub guarantees message delivery
 6. **Monitoring**: Each service can be monitored separately
-7. **Secret Centralization**: All Discord secrets in proxy service
+7. **Secret Centralization**: All Discord secrets in proxy
+8. **Separation of Concerns**: Each service has a clear role
+9. **Specialized Microservices**: Each command has its own service
+10. **Dedicated Data Layer**: Canvas-service as single source of truth
+11. **Direct Webhooks**: Processors send responses directly, reducing latency
+12. **Identity Token Authentication**: Secure service-to-service communication
