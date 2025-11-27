@@ -6,6 +6,7 @@ DISCORD_PUBLIC_KEY = os.environ.get('DISCORD_PUBLIC_KEY')
 DISCORD_BOT_TOKEN = os.environ.get('DISCORD_BOT_TOKEN')
 DISCORD_APPLICATION_ID = os.environ.get('DISCORD_APPLICATION_ID')
 DISCORD_API_BASE_URL = "https://discord.com/api/v10"
+AUTH_SERVICE_URL = os.environ.get('AUTH_SERVICE_URL', '').rstrip('/')
 
 PUBSUB_TOPIC_INTERACTIONS = os.environ.get(
     'PUBSUB_TOPIC_INTERACTIONS', 'interactions'

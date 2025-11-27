@@ -6,13 +6,15 @@ Discord requires responses within 3 seconds. This service:
 - Uses deferred responses (type 5) for complex commands
 - Always responds within 3 seconds to Discord
 """
+import requests
 from functions_framework import http
 from flask import Request, jsonify, make_response, Response
 
 from shared.observability import init_observability, traced_function
 from config import (
     PROJECT_ID,
-    PUBSUB_TOPIC_INTERACTIONS
+    PUBSUB_TOPIC_INTERACTIONS,
+    AUTH_SERVICE_URL
 )
 from discord_utils import verify_discord_signature
 from interaction_handler import process_interaction, prepare_pubsub_data
@@ -95,6 +97,21 @@ def web_interactions(request: Request):
     correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
 
     try:
+        session_id = _extract_session_id(request)
+        if not session_id:
+            logger.warning("Web interaction missing session", correlation_id=correlation_id)
+            return jsonify({'status': 'error', 'message': 'Missing session'}), 401
+
+        verified_user, status_code, error_message = _verify_web_session(session_id, correlation_id)
+        if not verified_user:
+            logger.warning(
+                "Web interaction session verification failed",
+                correlation_id=correlation_id,
+                status_code=status_code,
+                error=error_message
+            )
+            return jsonify({'status': 'error', 'message': error_message}), status_code
+
         data = request.get_json(silent=True)
         if not data:
             logger.warning("Invalid JSON in web interaction", correlation_id=correlation_id)
@@ -106,6 +123,8 @@ def web_interactions(request: Request):
             return jsonify({'status': 'error', 'message': 'Missing command'}), 400
 
         logger.info("Processing web interaction", correlation_id=correlation_id, command=command_name)
+
+        _inject_verified_user(data, verified_user)
 
         result = process_interaction(data, 'web', correlation_id=correlation_id)
         if result:
@@ -233,3 +252,85 @@ def discord_interactions(request: Request):
         )
         response, status_code = get_error_response('discord', 'internal')
         return jsonify(response), status_code
+
+
+def _extract_session_id(request: Request) -> str | None:
+    """Extract session ID from headers."""
+    session_id = request.headers.get('X-Session-ID')
+    if session_id:
+        return session_id.strip()
+
+    auth_header = request.headers.get('Authorization', '').strip()
+    if auth_header.lower().startswith('bearer '):
+        token = auth_header.split(' ', 1)[1].strip()
+        if token:
+            return token
+    return None
+
+
+def _verify_web_session(session_id: str, correlation_id: str | None):
+    """Call auth-service to verify the session."""
+    if not AUTH_SERVICE_URL:
+        logger.error("AUTH_SERVICE_URL not configured", correlation_id=correlation_id)
+        return None, 500, "Auth service unavailable"
+
+    verify_url = f"{AUTH_SERVICE_URL}/auth/verify"
+
+    try:
+        response = requests.post(
+            verify_url,
+            json={'session_id': session_id},
+            timeout=5
+        )
+    except requests.RequestException as exc:
+        logger.error(
+            "Auth service verification failed",
+            error=str(exc),
+            correlation_id=correlation_id,
+            verify_url=verify_url
+        )
+        return None, 503, "Auth service unavailable"
+
+    if response.status_code == 200:
+        payload = response.json()
+        if payload.get('valid') and payload.get('user'):
+            return payload['user'], 200, None
+        return None, 401, payload.get('error') or "Invalid session"
+
+    if response.status_code in (400, 401):
+        payload = response.json() if response.content else {}
+        return None, 401, payload.get('error') or "Invalid session"
+
+    logger.error(
+        "Auth service responded with unexpected status",
+        status_code=response.status_code,
+        response_text=response.text[:200],
+        correlation_id=correlation_id
+    )
+    return None, 502, "Auth verification failed"
+
+
+def _inject_verified_user(interaction_data: dict, verified_user: dict):
+    """Add verified user information to the interaction payload."""
+    if not verified_user:
+        return
+
+    user_id = verified_user.get('id')
+    username = verified_user.get('username') or 'web-user'
+    avatar = verified_user.get('avatar')
+
+    if username and '#' in username:
+        base_username, discriminator = username.split('#', 1)
+    else:
+        base_username, discriminator = username, '0'
+
+    interaction_data['user_id'] = user_id
+
+    user_block = interaction_data.get('user', {})
+    user_block.update({
+        'id': user_id,
+        'username': base_username,
+        'discriminator': discriminator,
+        'avatar': avatar
+    })
+    interaction_data['user'] = user_block

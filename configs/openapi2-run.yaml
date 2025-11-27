@@ -4,38 +4,39 @@ info:
   description: API Gateway with endpoints for web service and Discord bot.
   version: 2.0.0
 schemes:
-- https
+  - https
 produces:
-- application/json
+  - application/json
 consumes:
-- application/json
+  - application/json
 paths:
   /discord/interactions:
     post:
       summary: Handle Discord interactions
-      description: Webhook endpoint for Discord bot interactions. Routes to Proxy
+      description:
+        Webhook endpoint for Discord bot interactions. Routes to Proxy
         Service which publishes to Pub/Sub topics.
       operationId: discordInteractions
       x-google-backend:
         address: https://proxy-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: X-Signature-Ed25519
-        in: header
-        required: true
-        type: string
-        description: Discord signature for request verification
-      - name: X-Signature-Timestamp
-        in: header
-        required: true
-        type: string
-        description: Discord timestamp for request verification
-      - name: interaction
-        in: body
-        required: true
-        schema:
-          type: object
-          description: Discord interaction payload
+        - name: X-Signature-Ed25519
+          in: header
+          required: true
+          type: string
+          description: Discord signature for request verification
+        - name: X-Signature-Timestamp
+          in: header
+          required: true
+          type: string
+          description: Discord timestamp for request verification
+        - name: interaction
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Discord interaction payload
       responses:
         '200':
           description: Successful interaction response
@@ -66,32 +67,38 @@ paths:
           description: CORS preflight response
     post:
       summary: Handle web interactions
-      description: Endpoint for web client interactions. Routes to Proxy Service which
+      description:
+        Endpoint for web client interactions. Routes to Proxy Service which
         publishes to Pub/Sub topics.
       operationId: webInteractions
       x-google-backend:
         address: https://proxy-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: interaction
-        in: body
-        required: true
-        schema:
-          type: object
-          description: Web interaction payload
-          properties:
-            command:
-              type: string
-              description: Command name
-            options:
-              type: array
-              description: Command options
-            token:
-              type: string
-              description: Interaction token
-            application_id:
-              type: string
-              description: Application ID
+        - name: X-Session-ID
+          in: header
+          required: true
+          type: string
+          description: Session identifier issued by auth-service after Discord OAuth2
+        - name: interaction
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Web interaction payload
+            properties:
+              command:
+                type: string
+                description: Command name
+              options:
+                type: array
+                description: Command options
+              token:
+                type: string
+                description: Interaction token
+              application_id:
+                type: string
+                description: Application ID
       responses:
         '200':
           description: Successful interaction response (immediate)
@@ -169,16 +176,16 @@ paths:
         address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: code
-        in: query
-        required: true
-        type: string
-        description: OAuth2 authorization code
-      - name: state
-        in: query
-        required: false
-        type: string
-        description: CSRF protection state token
+        - name: code
+          in: query
+          required: true
+          type: string
+          description: OAuth2 authorization code
+        - name: state
+          in: query
+          required: false
+          type: string
+          description: CSRF protection state token
       responses:
         '302':
           description: Redirect to frontend with session
@@ -209,14 +216,14 @@ paths:
         address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: session
-        in: body
-        required: true
-        schema:
-          type: object
-          properties:
-            session_id:
-              type: string
+        - name: session
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              session_id:
+                type: string
       responses:
         '200':
           description: Logout successful
@@ -249,14 +256,14 @@ paths:
         address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: session
-        in: body
-        required: true
-        schema:
-          type: object
-          properties:
-            session_id:
-              type: string
+        - name: session
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              session_id:
+                type: string
       responses:
         '200':
           description: Session is valid
@@ -293,11 +300,11 @@ paths:
         address: https://discord-auth-service-gdu7lmfosq-ew.a.run.app
         path_translation: APPEND_PATH_TO_ADDRESS
       parameters:
-      - name: X-Session-ID
-        in: header
-        required: true
-        type: string
-        description: Session ID
+        - name: X-Session-ID
+          in: header
+          required: true
+          type: string
+          description: Session ID
       responses:
         '200':
           description: User information

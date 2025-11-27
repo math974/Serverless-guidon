@@ -107,46 +107,47 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           WEB CLIENT INTERACTION                             │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          API GATEWAY (GCP)                                   │
 │  Endpoint: POST /web/interactions                                           │
-│  Headers: Authorization: Bearer <session_token>                             │
+│  Headers: X-Session-ID (or Authorization: Bearer <session_id>)              │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PROXY SERVICE (Cloud Functions Gen2)                │
 │  Service: proxy                                                              │
 │                                                                              │
 │  Steps:                                                                      │
-│  1. Verify session (auth-service)                                        │
-│  2. Parse JSON request                                                   │
-│  3. Handle simple commands directly (ping, hello, help)                  │
-│  4. For complex commands → Publish to Pub/Sub                            │
-│  5. Return JSON response (immediate or 202 Accepted)                    │
+│  1. Call auth-service /auth/verify with the session ID                    │
+│  2. Inject verified Discord user info into the interaction payload        │
+│  3. Parse JSON request                                                    │
+│  4. Handle simple commands directly (ping, hello, help)                   │
+│  5. For complex commands → Publish to Pub/Sub                             │
+│  6. Return JSON response (immediate 200 or 202 Accepted)                  │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    │                               │
-          ┌─────────▼─────────┐         ┌─────────▼─────────┐
-          │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
-          │  (ping, hello,     │         │  (draw, snapshot) │
-          │   help)            │         │                    │
-          │                   │         │                    │
-          │  Direct JSON      │         │  202 Accepted      │
-          │  response (200)   │         │  + Pub/Sub         │
-          └───────────────────┘         └────────────────────┘
-                                                    │
-                                                    ▼
+                                   │
+                   ┌───────────────┴───────────────┐
+                   │                               │
+         ┌─────────▼─────────┐         ┌─────────▼─────────┐
+         │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
+         │  (ping, hello,     │         │  (draw, snapshot) │
+         │   help)            │         │                    │
+         │                   │         │                    │
+         │  Direct JSON      │         │  202 Accepted      │
+         │  response (200)   │         │  + Pub/Sub         │
+         └───────────────────┘         └────────────────────┘
+                                                   │
+                                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PUB/SUB TOPICS (GCP)                                │
 │  Same topics as Discord flow                                                │
 │  All topics trigger Cloud Functions Gen2 via Eventarc                      │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    PROCESSOR SERVICES (Cloud Functions Gen2)                │
 │  Same processors as Discord flow                                            │
@@ -156,8 +157,8 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 │  2. Process command                                                          │
 │  3. Send response to provided webhook URL (direct)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
+                                   │
+                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              WEB CLIENT                                      │
 │  Receives JSON response (via webhook callback)                               │
@@ -240,8 +241,9 @@ Discord → API Gateway → Proxy
 ```
 Web Client → API Gateway → Proxy
                               │
-                              ├─► Verify session (auth-service)
-                              ├─► Parse JSON
+                              ├─► Extract X-Session-ID / Bearer token
+                              ├─► Verify session via auth-service
+                              ├─► Parse JSON & enrich user data
                               ├─► Process directly
                               └─► Return JSON (200 OK)
 ```
@@ -280,7 +282,8 @@ Discord → API Gateway → Proxy
 ```
 Web Client → API Gateway → Proxy
                               │
-                              ├─► Verify session (auth-service)
+                              ├─► Verify session via auth-service
+                              ├─► Inject verified user + command metadata
                               ├─► Publish to Pub/Sub
                               └─► Return 202 Accepted
                                      │
@@ -310,7 +313,7 @@ Web Client → API Gateway → Proxy
 - **URL**: `https://guidon-*.ew.gateway.dev`
 - **Endpoints**:
   - `POST /discord/interactions` → Proxy (Discord bot)
-  - `POST /web/interactions` → Proxy (Web clients)
+  - `POST /web/interactions` → Proxy (Web clients, requires `X-Session-ID` header)
   - `GET /health` → Proxy
   - `GET /auth/*` → Auth Service
   - `GET /*` → Web Frontend
@@ -323,7 +326,7 @@ Web Client → API Gateway → Proxy
 - **Secrets**: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
 - **Responsibilities**:
   - Discord signature verification (for Discord interactions)
-  - Web session authentication (for web interactions via auth-service)
+  - Web session authentication (calls auth-service /auth/verify)
   - Simple command handling (ping, hello, help) - both Discord and Web
   - Publishing to Pub/Sub for complex commands
   - No longer handles processor responses (processors send directly via webhooks)
