@@ -37,7 +37,7 @@ resource "google_firestore_database" "database" {
   concurrency_mode                  = var.database_type == "FIRESTORE_NATIVE" ? "OPTIMISTIC" : null
   app_engine_integration_mode       = var.database_type == "FIRESTORE_NATIVE" ? "DISABLED" : null
   point_in_time_recovery_enablement = var.enable_pitr ? "POINT_IN_TIME_RECOVERY_ENABLED" : "POINT_IN_TIME_RECOVERY_DISABLED"
-  
+
   # TOUJOURS activer la protection contre la suppression
   delete_protection_state = "DELETE_PROTECTION_ENABLED"
 

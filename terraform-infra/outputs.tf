@@ -6,11 +6,11 @@ output "function_urls" {
 output "firestore_database" {
   description = "Informations sur la database Firestore"
   value = {
-    id         = module.firestore.database_id
-    name       = module.firestore.database_name
-    location   = module.firestore.database_location
-    type       = module.firestore.database_type
-    secret_id  = module.firestore.secret_id
+    id          = module.firestore.database_id
+    name        = module.firestore.database_name
+    location    = module.firestore.database_location
+    type        = module.firestore.database_type
+    secret_id   = module.firestore.secret_id
     secret_name = module.firestore.secret_name
   }
 }
