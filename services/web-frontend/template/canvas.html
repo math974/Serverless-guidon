@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <!-- CONFIG_PLACEHOLDER -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collaborative Canvas 48x48</title>
@@ -533,7 +534,8 @@
         import { listenForCanvasDrawEvents } from './js/pubSubEvent.js';
         const CANVAS_SIZE = 48;
         const PIXEL_SIZE = 10;
-        const GATEWAY_BASE_URL = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : window.location.origin;
+        const GATEWAY_BASE_URL = typeof window.GATEWAY_URL !== 'undefined' ? window.GATEWAY_URL : window.location.origin;
+        const WEBHOOK_URL = typeof window.WEBHOOK_URL !== 'undefined' ? window.WEBHOOK_URL : null;
 
         const DEFAULT_COLOR = '#FFFFFF';
         let canvasData = [];
@@ -685,6 +687,7 @@
 
                 const sessionId = getSessionId();
                 const token = 'canvas-state-' + Date.now();
+                console.log('Sending canvas_state request with webhook_url:', typeof WEBHOOK_URL !== 'undefined' ? WEBHOOK_URL : 'undefined');
 
                 const response = await fetch(`${GATEWAY_BASE_URL}/web/interactions`, {
                     method: 'POST',
@@ -696,6 +699,7 @@
                         command: 'canvas_state',
                         token: token,
                         application_id: 'web-client',
+                        webhook_url: typeof WEBHOOK_URL !== 'undefined' ? WEBHOOK_URL : null,
                         user_id: user.id,
                         user: {
                             id: user.id,
@@ -715,7 +719,7 @@
                     } else if (data.status === 'processing') {
                         await pollForCanvasStateResult(token);
                     } else {
-                        console.error('Unexpected status in canvas response:', data.status);
+                        console.error('Unexpected status in canvas response:', data.status, data);
                         showNotification('Failed to load canvas: ' + (data.message || 'Unknown error'), 'error');
                     }
                 } else {
@@ -737,7 +741,7 @@
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
                 try {
-                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    const response = await fetch(`/response/${token}`);
                     if (response.status === 200) {
                         const data = await response.json();
                         if (data.status === 'success') {
@@ -939,6 +943,7 @@
                         command: 'draw',
                         token: token,
                         application_id: 'web-client',
+                        webhook_url: typeof WEBHOOK_URL !== 'undefined' ? WEBHOOK_URL : null,
                         user_id: user.id,
                         user: {
                             id: user.id,
@@ -1009,6 +1014,7 @@
                         command: 'stats',
                         token: token,
                         application_id: 'web-client',
+                        webhook_url: typeof WEBHOOK_URL !== 'undefined' ? WEBHOOK_URL : null,
                         user_id: user.id,
                         user: {
                             id: user.id,
@@ -1036,7 +1042,7 @@
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 try {
-                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    const response = await fetch(`/response/${token}`);
                     if (response.status === 200) {
                         const data = await response.json();
                         if (data.status === 'success') {
@@ -1126,7 +1132,7 @@
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 try {
-                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`);
+                    const response = await fetch(`/response/${token}`);
                     if (response.status === 200) {
                         const data = await response.json();
                         if (data.status === 'success') {
@@ -1173,6 +1179,7 @@
                         command: 'snapshot',
                         token: token,
                         application_id: 'web-client',
+                        webhook_url: typeof WEBHOOK_URL !== 'undefined' ? WEBHOOK_URL : null,
                         user_id: user.id,
                         user: {
                             id: user.id,
@@ -1211,7 +1218,7 @@
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 try {
-                    const response = await fetch(`${GATEWAY_BASE_URL}/web/response/${token}`, {
+                    const response = await fetch(`/response/${token}`, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1318,9 +1325,9 @@
             }
 
             // Fallback to global variable (from server)
-            if (typeof SESSION_ID !== 'undefined' && SESSION_ID) {
-                localStorage.setItem('guidon_session', SESSION_ID);
-                return SESSION_ID;
+            if (typeof window.SESSION_ID !== 'undefined' && window.SESSION_ID) {
+                localStorage.setItem('guidon_session', window.SESSION_ID);
+                return window.SESSION_ID;
             }
 
             return '';
