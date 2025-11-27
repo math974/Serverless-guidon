@@ -268,3 +268,45 @@ module "pubsub" {
 
   depends_on = [module.functions]
 }
+
+# Secrets automatiques pour les URLs des services
+# Ces secrets sont automatiquement peuplés avec les URLs des Cloud Functions déployées
+resource "google_secret_manager_secret" "service_urls" {
+  for_each = toset(["USER_MANAGER_URL", "CANVAS_SERVICE_URL", "AUTH_SERVICE_URL"])
+
+  project   = var.project_id
+  secret_id = each.value
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+resource "google_secret_manager_secret_version" "user_manager_url" {
+  secret      = google_secret_manager_secret.service_urls["USER_MANAGER_URL"].id
+  secret_data = module.functions["user-manager"].function_url
+}
+
+resource "google_secret_manager_secret_version" "canvas_service_url" {
+  secret      = google_secret_manager_secret.service_urls["CANVAS_SERVICE_URL"].id
+  secret_data = module.functions["canvas-service"].function_url
+}
+
+resource "google_secret_manager_secret_version" "auth_service_url" {
+  secret      = google_secret_manager_secret.service_urls["AUTH_SERVICE_URL"].id
+  secret_data = module.functions["auth-service"].function_url
+}
+
+# Donner accès aux secrets des URLs aux service accounts des Cloud Functions
+resource "google_secret_manager_secret_iam_member" "url_secrets_access" {
+  for_each = google_secret_manager_secret.service_urls
+
+  project   = var.project_id
+  secret_id = each.value.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
+}

@@ -17,6 +17,18 @@ functions = {
     source_dir          = "../services/proxy"
     runtime             = "python311"
     authorized_invokers = ["api-gateway"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "auth-service" = {
     entry_point         = "auth_handler"
@@ -67,42 +79,121 @@ functions = {
     source_dir          = "../services/processor-base"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-stats" = {
     entry_point         = "processor_stats_handler"
     source_dir          = "../services/processor-stats"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-colors" = {
     entry_point         = "processor_colors_handler"
     source_dir          = "../services/processor-colors"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-draw" = {
     entry_point         = "processor_draw_handler"
     source_dir          = "../services/processor-draw"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-pixel-info" = {
     entry_point         = "processor_pixel_info_handler"
     source_dir          = "../services/processor-pixel-info"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-snapshot" = {
     entry_point         = "processor_snapshot_handler"
     source_dir          = "../services/processor-snapshot"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
   "processor-canvas-state" = {
     entry_point         = "processor_canvas_state_handler"
     source_dir          = "../services/processor-canvas-state"
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
+    secret_env = [
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      }
+    ]
   }
 }
 
