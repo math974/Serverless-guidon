@@ -2,11 +2,11 @@
 """
 import time
 from functools import wraps
-from flask import Request
+from flask import request as flask_request
 from typing import Callable
 
 def with_correlation(logger):
-    """Decorator to handle correlation ID and request logging.
+    """Decorator to handle correlation ID and request logging for Flask.
 
     Usage:
         @with_correlation(logger)
@@ -16,32 +16,31 @@ def with_correlation(logger):
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(request: Request, *args, **kwargs):
+        def wrapper(*args, **kwargs):
             from shared.observability import get_correlation_id
 
-            # Get or generate correlation ID
-            correlation_id = get_correlation_id(request)
-
-            # Store in request object for easy access
-            request.correlation_id = correlation_id
-            request.start_time = time.time()
+            # Utilise flask.request
+            req = flask_request
+            correlation_id = get_correlation_id(req)
+            req.correlation_id = correlation_id
+            req.start_time = time.time()
 
             # Log request start
             logger.info(
                 "Request started",
                 correlation_id=correlation_id,
-                method=request.method,
-                path=request.path,
-                user_agent=request.headers.get('User-Agent', ''),
-                remote_addr=request.headers.get('X-Forwarded-For', '').split(',')[0] if request.headers.get('X-Forwarded-For') else ''
+                method=req.method,
+                path=req.path,
+                user_agent=req.headers.get('User-Agent', ''),
+                remote_addr=req.headers.get('X-Forwarded-For', '').split(',')[0] if req.headers.get('X-Forwarded-For') else ''
             )
 
             try:
                 # Execute the handler
-                result = func(request, *args, **kwargs)
+                result = func(*args, **kwargs)
 
                 # Calculate duration
-                duration_ms = (time.time() - request.start_time) * 1000
+                duration_ms = (time.time() - req.start_time) * 1000
 
                 # Extract status code from result
                 status_code = 200
@@ -52,8 +51,8 @@ def with_correlation(logger):
                 logger.info(
                     "Request completed",
                     correlation_id=correlation_id,
-                    method=request.method,
-                    path=request.path,
+                    method=req.method,
+                    path=req.path,
                     status_code=status_code,
                     duration_ms=round(duration_ms, 2)
                 )
@@ -78,13 +77,13 @@ def with_correlation(logger):
 
             except Exception as e:
                 # Log error
-                duration_ms = (time.time() - request.start_time) * 1000
+                duration_ms = (time.time() - req.start_time) * 1000
                 logger.error(
                     "Request failed",
                     error=e,
                     correlation_id=correlation_id,
-                    method=request.method,
-                    path=request.path,
+                    method=req.method,
+                    path=req.path,
                     duration_ms=round(duration_ms, 2)
                 )
                 raise

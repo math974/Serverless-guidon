@@ -1,7 +1,7 @@
 """Web frontend for Guidon - Canvas drawing interface."""
 import os
 import sys
-from flask import Flask, request, make_response, jsonify, send_from_directory, Request
+from flask import Flask, request as flask_request, make_response, jsonify, send_from_directory
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -25,26 +25,26 @@ AUTH_SERVICE_URL = os.environ.get(
 )
 
 @app.route('/', methods=['GET'])
-@with_correlation(logger)
 @traced_function("web_app")
-def web_app(request: Request):
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
+@with_correlation(logger)
+def web_app():
+    correlation_id = getattr(flask_request, 'correlation_id', flask_request.headers.get('X-Correlation-ID'))
     try:
-        path = request.path
-        method = request.method
+        path = flask_request.path
+        method = flask_request.method
         logger.info("Web request received", correlation_id=correlation_id, path=path, method=method)
         path_clean = path.rstrip('/')
         if path_clean == '/canvas' or path_clean == '':
             return canvas_page()
         return session_page()
     except Exception as e:
-        logger.error("Error in web_app", error=e, correlation_id=correlation_id, path=request.path)
+        logger.error("Error in web_app", error=e, correlation_id=correlation_id, path=flask_request.path)
         return make_response("Internal server error", 500)
 
 @app.route('/canvas', methods=['GET'])
 def canvas_page():
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
-    session_id = request.args.get("session")
+    correlation_id = getattr(flask_request, 'correlation_id', flask_request.headers.get('X-Correlation-ID'))
+    session_id = flask_request.args.get("session")
     try:
         if not session_id:
             logger.warning("Canvas page accessed without session", correlation_id=correlation_id)
@@ -81,8 +81,8 @@ def canvas_page():
 
 @app.route('/session', methods=['GET'])
 def session_page():
-    session_id = request.args.get("session")
-    username = request.args.get("user", "Visitor")
+    session_id = flask_request.args.get("session")
+    username = flask_request.args.get("user", "Visitor")
     has_session = bool(session_id)
     session_display = session_id or "unknown"
     template_path = os.path.join(os.path.dirname(__file__), 'template', 'session.html')
@@ -137,4 +137,4 @@ def verify_session(session_id: str) -> dict:
     return None
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, ssl_context=('cert.pem', 'key.pem'))
