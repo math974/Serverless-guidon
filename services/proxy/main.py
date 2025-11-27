@@ -7,21 +7,30 @@ Discord requires responses within 3 seconds. This service:
 - Always responds within 3 seconds to Discord
 """
 from functions_framework import http
-from flask import Request, jsonify
+from flask import Request, jsonify, make_response, Response
 
 from shared.observability import init_observability, traced_function
 from config import (
     PROJECT_ID,
-    PUBSUB_TOPIC_DISCORD_INTERACTIONS
+    PUBSUB_TOPIC_INTERACTIONS
 )
-from discord_utils import verify_discord_signature, send_discord_response
+from discord_utils import verify_discord_signature
 from interaction_handler import process_interaction, prepare_pubsub_data
 from pubsub_utils import get_topic_for_command, publish_to_pubsub
 from response_utils import get_error_response
 from shared.correlation import with_correlation
 
-# Initialize observability (without Flask app)
 logger, tracing = init_observability('discord-proxy', app=None)
+
+
+def add_cors_headers(response):
+    """Add CORS headers to response."""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Session-ID, X-Correlation-ID, Authorization'
+    response.headers['Access-Control-Max-Age'] = '3600'
+    return response
+
 
 @http
 @with_correlation(logger)
@@ -34,30 +43,31 @@ def proxy_handler(request: Request):
     path = request.path
     method = request.method
 
+    # Handle CORS preflight requests
+    if method == 'OPTIONS':
+        response = make_response('', 200)
+        return add_cors_headers(response)
+
     # --- Health check ---
     if path == "/health" and method == "GET":
-        return health_handler(request)
-
-    # --- Discord response endpoint ---
-    if path == "/discord/response" and method == "POST":
-        return receive_processor_response(request)
-
-    # --- Web response endpoint ---
-    if path == "/web/response" and method == "POST":
-        return receive_web_response(request)
+        response = health_handler(request)
+        return add_cors_headers(response)
 
     # --- Web interactions endpoint ---
     if path == "/web/interactions" and method == "POST":
-        return web_interactions(request)
+        result = web_interactions(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
+        return add_cors_headers(response)
 
     # --- Discord interactions endpoint ---
     if path == "/discord/interactions" and method == "POST":
         return discord_interactions(request)
 
-    # 404 for unknown paths
     logger.warning("Unknown path", path=path, method=method)
-    return jsonify({'error': 'Not found'}), 404
-
+    response = jsonify({'error': 'Not found'}), 404
+    if isinstance(response, tuple):
+        response = make_response(response[0], response[1])
+    return add_cors_headers(response)
 
 def health_handler(request: Request):
     """Health check endpoint."""
@@ -65,113 +75,23 @@ def health_handler(request: Request):
     logger.info("Health check called", correlation_id=correlation_id)
 
     from config import (
-        PUBSUB_TOPIC_DISCORD_INTERACTIONS,
-        PUBSUB_TOPIC_DISCORD_COMMANDS_BASE,
-        PUBSUB_TOPIC_DISCORD_COMMANDS_ART
+        PUBSUB_TOPIC_INTERACTIONS,
+        PUBSUB_TOPIC_COMMANDS_BASE
     )
     return jsonify({
         'status': 'healthy',
         'service': 'discord-proxy',
         'project_id': PROJECT_ID,
         'topics': {
-            'interactions': PUBSUB_TOPIC_DISCORD_INTERACTIONS,
-            'commands_base': PUBSUB_TOPIC_DISCORD_COMMANDS_BASE,
-            'commands_art': PUBSUB_TOPIC_DISCORD_COMMANDS_ART
+            'interactions': PUBSUB_TOPIC_INTERACTIONS,
+            'commands_base': PUBSUB_TOPIC_COMMANDS_BASE
         }
     }), 200
 
 
-@traced_function("send_discord_response")
-def receive_processor_response(request: Request):
-    """Receive response from processor and send it to Discord.
-
-    This endpoint is called by processors after they process a command.
-    The processor sends the response here, and this service forwards it to Discord.
-    """
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
-
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            logger.warning("Missing data in response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing data'}), 400
-
-        interaction_token = data.get('interaction_token')
-        application_id = data.get('application_id')
-        response = data.get('response')
-
-        if not interaction_token or not application_id or not response:
-            logger.warning(
-                "Missing required fields",
-                correlation_id=correlation_id,
-                has_token=bool(interaction_token),
-                has_app_id=bool(application_id),
-                has_response=bool(response)
-            )
-            return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-
-        logger.info(
-            "Sending response to Discord",
-            correlation_id=correlation_id,
-            interaction_token=interaction_token[:10] + "..." if interaction_token else None
-        )
-
-        success = send_discord_response(interaction_token, application_id, response)
-        if success:
-            logger.info("Response sent successfully to Discord", correlation_id=correlation_id)
-            return jsonify({'status': 'sent'}), 200
-        else:
-            logger.error("Failed to send to Discord", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Failed to send to Discord'}), 500
-
-    except Exception as e:
-        logger.error("Error in receive_processor_response", error=e, correlation_id=correlation_id)
-        return jsonify({'status': 'error', 'message': 'Internal error'}), 500
-
-
-def receive_web_response(request: Request):
-    """Receive response from processor for web interactions."""
-    correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
-
-    try:
-        data = request.get_json(silent=True)
-        if not data:
-            logger.warning("Missing data in web response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing data'}), 400
-
-        token = data.get('token')
-        response = data.get('response')
-
-        if not token or not response:
-            logger.warning("Missing required fields in web response", correlation_id=correlation_id)
-            return jsonify({'status': 'error', 'message': 'Missing required fields'}), 400
-
-        logger.info("Processing web response", correlation_id=correlation_id, token=token[:10] + "..." if token else None)
-
-        if 'data' in response:
-            web_response = {
-                'status': 'success',
-                'data': response['data']
-            }
-        else:
-            web_response = {
-                'status': 'success',
-                'data': response
-            }
-
-        return jsonify(web_response), 200
-
-    except Exception as e:
-        logger.error("Error in receive_web_response", error=e, correlation_id=correlation_id)
-        return jsonify({'status': 'error', 'message': 'Internal error'}), 500
-
-
+@traced_function("web_interactions")
 def web_interactions(request: Request):
-    """Handle web interactions (non-Discord).
-
-    This endpoint handles interactions from web clients.
-    It supports the same commands as Discord but returns JSON responses.
-    """
+    """Handle web interactions."""
     correlation_id = getattr(request, 'correlation_id', request.headers.get('X-Correlation-ID'))
 
     try:
@@ -275,7 +195,7 @@ def discord_interactions(request: Request):
                 topic=topic
             )
         else:
-            topic = PUBSUB_TOPIC_DISCORD_INTERACTIONS
+            topic = PUBSUB_TOPIC_INTERACTIONS
 
         pubsub_data = prepare_pubsub_data(interaction, 'discord', signature, timestamp, request)
         pubsub_data['correlation_id'] = correlation_id  # Propagate correlation ID

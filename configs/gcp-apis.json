@@ -1,0 +1,49 @@
+{
+  "apis": [
+    {
+      "name": "cloudfunctions.googleapis.com",
+      "description": "Cloud Functions API for serverless functions"
+    },
+    {
+      "name": "apigateway.googleapis.com",
+      "description": "API Gateway for routing and management"
+    },
+    {
+      "name": "servicecontrol.googleapis.com",
+      "description": "Service Control API for API Gateway"
+    },
+    {
+      "name": "servicemanagement.googleapis.com",
+      "description": "Service Management API for API Gateway"
+    },
+    {
+      "name": "pubsub.googleapis.com",
+      "description": "Pub/Sub API for asynchronous messaging"
+    },
+    {
+      "name": "secretmanager.googleapis.com",
+      "description": "Secret Manager API for secure secret storage"
+    },
+    {
+      "name": "run.googleapis.com",
+      "description": "Cloud Run API (used by Cloud Functions Gen2)"
+    },
+    {
+      "name": "firestore.googleapis.com",
+      "description": "Firestore API for database"
+    },
+    {
+      "name": "storage.googleapis.com",
+      "description": "Cloud Storage API for canvas snapshots"
+    },
+    {
+      "name": "cloudbuild.googleapis.com",
+      "description": "Cloud Build API for function deployment"
+    },
+    {
+      "name": "artifactregistry.googleapis.com",
+      "description": "Artifact Registry API for container images"
+    }
+  ]
+}
+

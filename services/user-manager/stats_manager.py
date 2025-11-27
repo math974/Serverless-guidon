@@ -108,7 +108,9 @@ class StatsManager:
                 'user_id': data.get('user_id'),
                 'username': data.get('username'),
                 'total_draws': data.get('total_draws', 0),
-                'is_premium': data.get('is_premium', False)
+                'is_premium': data.get('is_premium', False),
+                'avatar': data.get('avatar'),
+                'discriminator': data.get('discriminator', '0')
             })
 
         logger.info(

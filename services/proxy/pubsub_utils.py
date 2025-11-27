@@ -3,16 +3,39 @@ import json
 from typing import Optional
 from google.cloud import pubsub_v1
 
-from config import PROJECT_ID, PUBSUB_TOPIC_DISCORD_COMMANDS_ART, PUBSUB_TOPIC_DISCORD_COMMANDS_BASE
+from config import PROJECT_ID, PUBSUB_TOPIC_COMMANDS_BASE
 
 publisher = pubsub_v1.PublisherClient()
 
 def get_topic_for_command(command_name: str) -> str:
-    """Get Pub/Sub topic for a command."""
-    art_commands = ['draw', 'snapshot', 'stats', 'colors']
-    if command_name in art_commands:
-        return PUBSUB_TOPIC_DISCORD_COMMANDS_ART
-    return PUBSUB_TOPIC_DISCORD_COMMANDS_BASE
+    """Get Pub/Sub topic for a command.
+
+    Routes commands to specialized microservices:
+    - draw -> commands-draw
+    - snapshot -> commands-snapshot
+    - canvas_state -> commands-canvas-state
+    - stats -> commands-stats
+    - colors -> commands-colors
+    - pixel_info, getpixel -> commands-pixel-info
+    - Others -> commands-base
+    """
+    # Microservices routing
+    command_topic_map = {
+        'draw': 'commands-draw',
+        'snapshot': 'commands-snapshot',
+        'canvas_state': 'commands-canvas-state',
+        'stats': 'commands-stats',
+        'colors': 'commands-colors',
+        'pixel_info': 'commands-pixel-info',
+        'getpixel': 'commands-pixel-info',
+    }
+
+    # Check if command has dedicated topic
+    if command_name in command_topic_map:
+        return command_topic_map[command_name]
+
+    # Fallback to base topic for unknown commands
+    return PUBSUB_TOPIC_COMMANDS_BASE
 
 
 def publish_to_pubsub(topic_name: str, data: dict, logger=None, correlation_id: Optional[str] = None) -> str:

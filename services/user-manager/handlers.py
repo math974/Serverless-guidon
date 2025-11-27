@@ -156,8 +156,11 @@ def handle_users(request: Request, path: str, method: str):
         data = request.get_json() or {}
         command = data.get('command', 'unknown')
 
-        user_manager.increment_usage(user_id, command, correlation_id=correlation_id)
-        return jsonify({'status': 'incremented'}), 200
+        new_total = user_manager.increment_usage(user_id, command, correlation_id=correlation_id)
+        response = {'status': 'incremented'}
+        if new_total is not None:
+            response['total_draws'] = new_total
+        return jsonify(response), 200
 
     # --- POST /api/users/{user_id}/ban ---
     elif method == 'POST' and '/ban' in path:
