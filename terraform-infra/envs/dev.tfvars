@@ -26,11 +26,6 @@ functions = {
     source_dir  = "../services/user-manager"
     runtime     = "python311"
   }
-  "web-frontend" = {
-    entry_point = "web_app"
-    source_dir  = "../services/web-frontend"
-    runtime     = "python311"
-  }
   "discord-registrar" = {
     entry_point = "registrar_handler"
     source_dir  = "../services/discord-registrar"
