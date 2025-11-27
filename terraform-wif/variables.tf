@@ -82,6 +82,8 @@ variable "roles" {
     "roles/cloudfunctions.admin",
     "roles/pubsub.admin",
     "roles/run.admin",
-    "roles/datastore.owner"
+    "roles/datastore.owner",
+    "roles/firebase.admin",
+    "roles/cloudconfig.admin"
   ]
 }
