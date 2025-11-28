@@ -1,17 +1,26 @@
-"""Request correlation and logging utilities for Functions Framework.
+"""Request correlation and logging utilities for Functions Framework and Flask apps.
 """
 import time
 from functools import wraps
-from flask import request as flask_request
 from typing import Callable
 
 def with_correlation(logger):
-    """Decorator to handle correlation ID and request logging for Flask.
+    """Decorator to handle correlation ID and request logging.
 
-    Usage:
+    Supports both Cloud Functions (with explicit request parameter) and Flask apps
+    (using flask.request context).
+
+    Usage for Cloud Functions:
         @with_correlation(logger)
         def my_handler(request: Request):
             # correlation_id is automatically available via request.correlation_id
+            ...
+
+    Usage for Flask:
+        @with_correlation(logger)
+        @app.route('/path')
+        def my_handler():
+            # correlation_id is automatically available via flask.request.correlation_id
             ...
     """
     def decorator(func: Callable) -> Callable:
@@ -19,9 +28,43 @@ def with_correlation(logger):
         def wrapper(*args, **kwargs):
             from shared.observability import get_correlation_id
 
-            # Utilise flask.request
-            req = flask_request
+            # Detect if we're in a Flask context or Cloud Functions context
+            # Try to get request from Flask context first
+            try:
+                from flask import request as flask_request
+                # Check if we're in a Flask request context
+                if hasattr(flask_request, 'method'):
+                    req = flask_request
+                    is_flask = True
+                else:
+                    req = None
+                    is_flask = False
+            except (RuntimeError, ImportError):
+                # Not in Flask context
+                req = None
+                is_flask = False
+
+            # If not Flask, try to get request from first positional argument (Cloud Functions)
+            if not is_flask and args and hasattr(args[0], 'method') and hasattr(args[0], 'path'):
+                req = args[0]
+            elif not req:
+                # Fallback: try to import Request type and check if first arg matches
+                try:
+                    from flask import Request
+                    if args and isinstance(args[0], Request):
+                        req = args[0]
+                except (ImportError, TypeError):
+                    pass
+
+            if not req:
+                # No request object found, log warning and proceed without correlation
+                logger.warning("No request object found for correlation tracking")
+                return func(*args, **kwargs)
+
+            # Get or generate correlation ID
             correlation_id = get_correlation_id(req)
+
+            # Store in request object for easy access
             req.correlation_id = correlation_id
             req.start_time = time.time()
 
@@ -37,6 +80,8 @@ def with_correlation(logger):
 
             try:
                 # Execute the handler
+                # For Flask, don't pass request as it's in context
+                # For Cloud Functions, request is already in args[0]
                 result = func(*args, **kwargs)
 
                 # Calculate duration

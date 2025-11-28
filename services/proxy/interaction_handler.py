@@ -168,7 +168,8 @@ def prepare_pubsub_data(interaction_data: dict, interaction_type: str,
         return {
             'interaction': interaction_obj,
             'interaction_type': 'web',
-            'webhook_url': webhook_url
+            'webhook_url': webhook_url,
+            'token': interaction_data.get('token')  # Include token at root level for easy access
         }
     else:
         result = {

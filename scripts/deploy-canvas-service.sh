@@ -18,9 +18,17 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 echo "Preparing service..."
 "${SCRIPT_DIR}/prepare-services.sh"
 
+# Get user-manager URL if not provided
+if [ -z "${USER_MANAGER_URL:-}" ]; then
+    USER_MANAGER_URL=$(gcloud functions describe user-manager --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)" 2>/dev/null || echo "")
+fi
+
 ENV_VARS="GCP_PROJECT_ID=${PROJECT_ID},ENVIRONMENT=production,FIRESTORE_DATABASE=guidon-db"
 if [ ! -z "${GCS_CANVAS_BUCKET:-}" ]; then
   ENV_VARS="${ENV_VARS},GCS_CANVAS_BUCKET=${GCS_CANVAS_BUCKET}"
+fi
+if [ ! -z "${USER_MANAGER_URL}" ]; then
+  ENV_VARS="${ENV_VARS},USER_MANAGER_URL=${USER_MANAGER_URL}"
 fi
 
 echo "Deploying canvas-service..."
@@ -40,6 +48,12 @@ gcloud functions deploy "${SERVICE_NAME}" \
   2>&1 | grep -v "No change" || true
 
 SERVICE_URL=$(gcloud functions describe "${SERVICE_NAME}" --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
+
+# Grant permission to invoke user-manager if needed
+if [ ! -z "${USER_MANAGER_URL:-}" ]; then
+  echo "Granting permission to invoke user-manager..."
+  "${SCRIPT_DIR}/grant-service-invoker.sh" "${SERVICE_NAME}" "user-manager" "${PROJECT_ID}" "${REGION}" || true
+fi
 
 echo "Deployed: ${SERVICE_URL}"
 

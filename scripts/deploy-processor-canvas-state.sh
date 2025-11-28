@@ -30,7 +30,7 @@ gcloud functions deploy "${SERVICE_NAME}" \
   --source="${PROJECT_ROOT}/${SOURCE_DIR}" \
   --entry-point=processor_canvas_state_handler \
   --trigger-topic="${TOPIC}" \
-  --no-allow-unauthenticated \
+  --allow-unauthenticated \
   --project="${PROJECT_ID}" \
   --set-env-vars="${ENV_VARS}" \
   --set-secrets="DISCORD_BOT_TOKEN=DISCORD_BOT_TOKEN:latest" \

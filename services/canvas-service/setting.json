@@ -1,5 +1,7 @@
 {
   "canvas_size": 100,
   "pixel_scale": 10,
-  "default_color": "#FFFFFF"
+  "default_color": "#FFFFFF",
+  "user_manager_url": "",
+  "user_manager_timeout": 5
 }

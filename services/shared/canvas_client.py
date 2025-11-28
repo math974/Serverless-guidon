@@ -48,8 +48,8 @@ class CanvasClient:
         """Draw a pixel on the canvas.
 
         Args:
-            x: X coordinate (0-47)
-            y: Y coordinate (0-47)
+            x: X coordinate (0 to canvas_size-1, where canvas_size is dynamic)
+            y: Y coordinate (0 to canvas_size-1, where canvas_size is dynamic)
             color: Hex color code (e.g., #FF0000)
             user_id: User ID
             username: Username (optional)

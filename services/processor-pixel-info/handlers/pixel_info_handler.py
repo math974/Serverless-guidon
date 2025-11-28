@@ -44,10 +44,19 @@ def handle_pixel_info(interaction: dict = None):
             "Specify both `x` and `y` coordinates. Example: `/pixel_info x:10 y:12`."
         )
 
-    if not (0 <= x < CANVAS_SIZE and 0 <= y < CANVAS_SIZE):
+    # Get canvas size dynamically
+    canvas_state = canvas_client.get_canvas_state(correlation_id=correlation_id)
+    if canvas_state.get('error'):
+        return create_error_embed("Service unavailable", "Unable to retrieve canvas information.")
+
+    canvas_size = canvas_state.get('size', CANVAS_SIZE)  # Fallback to default if not available
+    if not isinstance(canvas_size, int) or canvas_size <= 0:
+        canvas_size = CANVAS_SIZE  # Fallback to default
+
+    if not (0 <= x < canvas_size and 0 <= y < canvas_size):
         return create_error_embed(
             "Invalid coordinates",
-            f"Coordinates must be between 0 and {CANVAS_SIZE - 1}."
+            f"Coordinates must be between 0 and {canvas_size - 1} (canvas size: {canvas_size}×{canvas_size})."
         )
 
     pixel_info = canvas_client.get_pixel_info(x, y, correlation_id)
@@ -95,7 +104,23 @@ def handle_pixel_info(interaction: dict = None):
         description=f'Details for pixel at ({x}, {y})',
         color=int(pixel_info.get('color', '#FFFFFF').replace('#', ''), 16) if pixel_info.get('color', '#FFFFFF').startswith('#') else 0xFFFFFF,
         fields=fields,
-        footer={'text': 'Canvas: 48×48'}
+        footer={'text': f'Canvas: {canvas_size}×{canvas_size}'}
     )
-    return create_response(embed, ephemeral=True)
+    response = create_response(embed, ephemeral=True)
+
+    if isinstance(response, dict):
+        response['pixel_info'] = {
+            'x': x,
+            'y': y,
+            'coordinates': f'({x}, {y})',
+            'color': pixel_info.get('color', '#FFFFFF'),
+            'drawnBy': pixel_info.get('username', 'Empty'),
+            'lastUpdated': pixel_info.get('timestamp'),
+            'editCount': pixel_info.get('edit_count', 0),
+            'user_id': pixel_info.get('user_id'),
+            'userId': pixel_info.get('user_id'),
+            'avatar': None
+        }
+
+    return response
 
