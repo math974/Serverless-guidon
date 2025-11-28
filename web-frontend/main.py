@@ -35,9 +35,6 @@ GATEWAY_URL = os.environ.get(
     "https://guidon-60g097ca.ew.gateway.dev"
 )
 
-WEB_FRONTEND_URL = os.environ.get("WEB_FRONTEND_URL")
-WEBHOOK_URL = f"{WEB_FRONTEND_URL}/webhook" if WEB_FRONTEND_URL else None
-
 @app.route('/webhook', methods=['POST'])
 @traced_function("webhook_handler")
 @with_correlation(logger)
@@ -229,12 +226,11 @@ def canvas_page():
     template_path = os.path.join(os.path.dirname(__file__), 'template', 'canvas.html')
 
     try:
-        current_webhook_url = WEBHOOK_URL or _build_webhook_url(flask_request)
+        current_webhook_url = _build_webhook_url(flask_request)
         logger.info(
             "Using webhook URL for frontend client",
             correlation_id=correlation_id,
-            webhook_url=current_webhook_url,
-            source="env" if WEBHOOK_URL else "dynamic"
+            webhook_url=current_webhook_url
         )
 
         try:
