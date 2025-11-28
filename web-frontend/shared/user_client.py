@@ -88,10 +88,12 @@ class UserManagementClient:
         command: str,
         correlation_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Check if user can execute command (rate limit check)."""
-        user = self._make_request('GET', f'/api/users/{user_id}', correlation_id=correlation_id)
-        is_premium = user.get('is_premium', False) if user else False
+        """Check if user can execute command (rate limit check).
 
+        Note: The server-side endpoint already fetches user data, so we don't need
+        to fetch it separately. We pass is_premium=False as default, and the server
+        will use the actual value from the database.
+        """
         result = self._make_request(
             'POST',
             '/api/rate-limit/check',
@@ -99,7 +101,7 @@ class UserManagementClient:
             json={
                 'user_id': user_id,
                 'command': command,
-                'is_premium': is_premium
+                'is_premium': False
             }
         )
         return result or {'allowed': True}
@@ -108,22 +110,30 @@ class UserManagementClient:
         self,
         user_id: str,
         command: str,
-        correlation_id: Optional[str] = None
-    ) -> Optional[int]:
+        correlation_id: Optional[str] = None,
+        include_stats: bool = False
+    ) -> Optional[Dict]:
         """Increment usage counter for a user command.
 
+        Args:
+            user_id: User ID
+            command: Command name
+            correlation_id: Correlation ID for logging
+            include_stats: If True, also return is_premium and is_banned
+
         Returns:
-            New total_draws value if command is 'draw', None otherwise
+            Dict with 'total_draws' (and optionally 'is_premium', 'is_banned') if command is 'draw',
+            None otherwise
         """
         result = self._make_request(
             'POST',
             f'/api/users/{user_id}/increment',
             correlation_id=correlation_id,
-            json={'command': command}
+            json={'command': command, 'include_stats': include_stats}
         )
         if result and 'total_draws' in result:
-            return result['total_draws']
-        return None if result is None else 0
+            return result
+        return None if result is None else {'total_draws': 0}
 
     def get_user_stats(
         self,
