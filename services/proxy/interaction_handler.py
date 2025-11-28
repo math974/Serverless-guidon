@@ -83,35 +83,6 @@ def process_interaction(
                     'message': 'You must register your account before using commands. Use /register to create your account.'
                 }, 403
 
-    art_commands = {'draw', 'snapshot'}
-    enforce_limits = command_name in art_commands
-    if user_id and enforce_limits:
-        allowed, rate_limit_info, error_message = check_user_allowed(
-            user_id,
-            command_name,
-            correlation_id=correlation_id,
-            user_payload=user_payload
-        )
-
-        if not allowed:
-            if rate_limit_info:
-                return get_rate_limit_error_response(rate_limit_info, interaction_type)
-            else:
-                if interaction_type == 'discord':
-                    return {
-                        'type': 4,
-                        'data': {
-                            'content': f"❌ {error_message or 'Access denied'}",
-                            'flags': 64
-                        }
-                    }, 200
-                else:
-                    return {
-                        'status': 'error',
-                        'message': error_message or 'Access denied'
-                    }, 403
-
-    # - Handle simple commands -
     simple_response = handle_simple_command(command_name, interaction_type)
     if simple_response:
         return simple_response, 200

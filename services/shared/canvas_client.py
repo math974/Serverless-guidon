@@ -90,6 +90,36 @@ class CanvasClient:
             logger.error("Exception calling canvas-service draw", error=e, correlation_id=correlation_id)
             return {'success': False, 'error': str(e)}
 
+    def get_canvas_size(self, correlation_id: str = None) -> Optional[int]:
+        """Get canvas size only (lightweight call).
+
+        Args:
+            correlation_id: Correlation ID for logging (optional)
+
+        Returns:
+            Canvas size (int) or None if error
+        """
+        if not self.base_url:
+            return None
+
+        url = f"{self.base_url}/canvas/size"
+        headers = self._build_headers(correlation_id)
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('size')
+            else:
+                logger.error(
+                    "Error calling canvas-service size",
+                    status_code=response.status_code,
+                    correlation_id=correlation_id
+                )
+                return None
+        except Exception as e:
+            logger.error("Exception calling canvas-service size", error=e, correlation_id=correlation_id)
+            return None
+
     def get_canvas_state(self, correlation_id: str = None) -> Dict:
         """Get canvas state as 2D array.
 

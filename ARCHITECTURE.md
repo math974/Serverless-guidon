@@ -14,42 +14,42 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DISCORD BOT INTERACTION                            │
+│                           DISCORD BOT INTERACTION                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          API GATEWAY (GCP)                                   │
-│  • Single entry point                                                        │
+│                          API GATEWAY (GCP)                                  │
+│  • Single entry point                                                       │
 │  • URL: https://guidon-*.ew.gateway.dev                                     │
-│  • Endpoints:                                                                │
-│    - POST /discord/interactions (Discord bot)                                │
-│    - POST /web/interactions (Web clients)                                    │
-│    - GET /health                                                             │
-│    - GET /auth/* (Auth service)                                              │
-│    - GET /* (Web frontend)                                                    │
+│  • Endpoints:                                                               │
+│    - POST /discord/interactions (Discord bot)                               │
+│    - POST /web/interactions (Web clients)                                   │
+│    - GET /health                                                            │
+│    - GET /auth/* (Auth service)                                             │
+│    - GET /* (Web frontend)                                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PROXY SERVICE (Cloud Functions Gen2)                │
-│  Service: proxy                                                              │
-│  Authentication: Private (IAM - API Gateway only)                            │
+│  Service: proxy                                                             │
+│  Authentication: Private (IAM - API Gateway only)                           │
 │  Secrets: DISCORD_PUBLIC_KEY, DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID     │
-│                                                                              │
-│  Steps:                                                                      │
-│  1. Verify Discord signature (DISCORD_PUBLIC_KEY)                         │
-│  2. Parse interaction                                                     │
-│  3. Handle simple commands directly (ping, hello)                        │
-│  4. For complex commands → Publish to Pub/Sub                            │
-│  5. Respond immediately to Discord (type 5 - deferred)                   │
+│                                                                             │
+│  Steps:                                                                     │
+│  1. Verify Discord signature (DISCORD_PUBLIC_KEY)                           │
+│  2. Parse interaction                                                       │
+│  3. Handle simple commands directly (ping, hello)                           │
+│  4. For complex commands → Publish to Pub/Sub                               │
+│  5. Respond immediately to Discord (type 5 - deferred)                      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                     ┌───────────────┴───────────────┐
                     │                               │
-          ┌─────────▼─────────┐         ┌─────────▼─────────┐
-          │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
-          │  (ping, hello)     │         │  (help, draw, etc)│
+          ┌─────────▼─────────┐         ┌─────────▼──────────┐
+          │  SIMPLE COMMANDS  │         │  COMPLEX COMMANDS  │
+          │  (ping, hello)    │         │  (help, draw, etc) │
           │                   │         │                    │
           │  Direct response  │         │  Type 5 (deferred) │
           │  Type 4           │         │  + Pub/Sub         │
@@ -58,37 +58,37 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
                                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PUB/SUB TOPICS (GCP)                                │
-│                                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │ interactions │  │commands-base│  │commands-draw  │  │commands-     │    │
-│  │              │  │             │  │              │  │ snapshot     │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │commands-     │  │commands-stats│  │commands-     │  │commands-     │    │
-│  │canvas-state  │  │              │  │colors        │  │pixel-info    │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ interactions │  │commands-base │  │commands-draw │  │commands-     │     │
+│  │              │  │              │  │              │  │ snapshot     │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │commands-     │  │commands-stats│  │commands-     │  │commands-     │     │
+│  │canvas-state  │  │              │  │colors        │  │pixel-info    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                                                                             │
 │  All topics trigger Cloud Functions Gen2 via Eventarc                       │
 └─────────────────────────────────────────────────────────────────────────────┘
             │                    │                    │
             │                    │                    │
             ▼                    ▼                    ▼
 ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
-│  PROCESSOR-BASE      │  │  PROCESSOR-DRAW     │  │  PROCESSOR-*        │
-│  (Cloud Functions)   │  │  (Cloud Functions)  │  │  (Cloud Functions)  │
-│                      │  │                      │  │                      │
-│  Steps:              │  │  Steps:              │  │  Steps:              │
-│  1. Receive message   │  │  1. Receive message   │  │  1. Receive message   │
-│  2. Process command   │  │  2. Check rate limit  │  │  2. Process command   │
-│  3. Send to Discord   │  │     (user-manager)    │  │  3. Call canvas-      │
-│     via webhook       │  │  3. Draw pixel         │  │     service           │
-│     (direct)          │  │     (canvas-service)   │  │  4. Send to Discord/  │
-│                      │  │  4. Increment usage    │  │     Web via webhook   │
-│                      │  │     (user-manager)     │  │     (direct)          │
-│                      │  │  5. Send to Discord    │  │                      │
-│                      │  │     via webhook        │  │                      │
-│                      │  │     (direct)           │  │                      │
+│ PROCESSOR-BASE      │  │ PROCESSOR-DRAW      │  │ PROCESSOR-*         │
+│ (Cloud Functions)   │  │ (Cloud Functions)   │  │ (Cloud Functions)   │
+│                     │  │                     │  │                     │
+│ Steps:              │  │ Steps:              │  │ Steps:              │
+│ 1. Receive message  │  │ 1. Receive message  │  │ 1. Receive message  │
+│ 2. Process command  │  │ 2. Check rate limit │  │ 2. Process command  │
+│ 3. Send to Discord  │  │    (user-manager)   │  │ 3. Call canvas-     │
+│    via webhook      │  │ 3. Draw pixel       │  │    service          │
+│    (direct)         │  │    (canvas-service) │  │ 4. Send to Discord/ │
+│                     │  │ 4. Increment usage  │  │    Web via webhook  │
+│                     │  │    (user-manager)   │  │    (direct)         │
+│                     │  │ 5. Send to Discord  │  │                     │
+│                     │  │    via webhook      │  │                     │
+│                     │  │    (direct)         │  │                     │
 └─────────────────────┘  └─────────────────────┘  └─────────────────────┘
             │                    │                    │
             │                    │                    │
@@ -105,63 +105,89 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           WEB CLIENT INTERACTION                             │
+│                           WEB CLIENT (Browser)                              │
+│  User authenticated via Discord OAuth2                                      │
+│  Session ID stored in localStorage                                          │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
+                                   │ POST /web/interactions
+                                   │ Headers: X-Session-ID: <session_id>
+                                   │ Body: { "command": "draw", "x": 10, ... }
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          API GATEWAY (GCP)                                   │
+│                          API GATEWAY (GCP)                                  │
 │  Endpoint: POST /web/interactions                                           │
-│  Headers: X-Session-ID (or Authorization: Bearer <session_id>)              │
+│  Routes to: proxy service                                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
+                                   │ (IAM authenticated)
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PROXY SERVICE (Cloud Functions Gen2)                │
-│  Service: proxy                                                              │
-│                                                                              │
-│  Steps:                                                                      │
-│  1. Call auth-service /auth/verify with the session ID                    │
-│  2. Inject verified Discord user info into the interaction payload        │
-│  3. Parse JSON request                                                    │
-│  4. Handle simple commands directly (ping, hello, help)                   │
-│  5. For complex commands → Publish to Pub/Sub                             │
-│  6. Return JSON response (immediate 200 or 202 Accepted)                  │
+│  Service: proxy                                                             │
+│  Authentication: Private (IAM - API Gateway only)                           │
+│                                                                             │
+│  Steps:                                                                     │
+│  1. Extract session ID from X-Session-ID header or Authorization Bearer     │
+│  2. Call auth-service POST /auth/verify with session ID                     │
+│  3. Receive verified Discord user info (user_id, username, avatar)          │
+│  4. Inject user info into interaction payload                               │
+│  5. Parse JSON request (command, options, webhook_url)                      │
+│  6. Route to appropriate handler                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
                    ┌───────────────┴───────────────┐
                    │                               │
-         ┌─────────▼─────────┐         ┌─────────▼─────────┐
-         │  SIMPLE COMMANDS   │         │  COMPLEX COMMANDS │
-         │  (ping, hello,     │         │  (draw, snapshot) │
-         │   help)            │         │                    │
+         ┌─────────▼─────────┐         ┌─────────▼──────────┐
+         │  SIMPLE COMMANDS  │         │  COMPLEX COMMANDS  │
+         │  (ping, hello,    │         │  (draw, snapshot,  │
+         │   help)           │         │   stats, etc)      │
          │                   │         │                    │
-         │  Direct JSON      │         │  202 Accepted      │
-         │  response (200)   │         │  + Pub/Sub         │
+         │  Process directly │         │  Publish to Pub/Sub│
+         │  Return JSON      │         │  Return 202        │
+         │  (200 OK)         │         │  Accepted          │
          └───────────────────┘         └────────────────────┘
                                                    │
+                                                   │ Pub/Sub message
+                                                   │ { command, user, webhook_url }
                                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         PUB/SUB TOPICS (GCP)                                │
-│  Same topics as Discord flow                                                │
-│  All topics trigger Cloud Functions Gen2 via Eventarc                      │
+│  Topic routing based on command:                                            │
+│  • commands-draw → processor-draw                                           │
+│  • commands-snapshot → processor-snapshot                                   │
+│  • commands-stats → processor-stats                                         │
+│  • commands-canvas-state → processor-canvas-state                           │
+│  • commands-colors → processor-colors                                       │
+│  • commands-pixel-info → processor-pixel-info                               │
+│  • commands-base → processor-base                                           │
+│                                                                             │
+│  All topics trigger Cloud Functions Gen2 via Eventarc                       │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
+                                   │ Eventarc trigger
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PROCESSOR SERVICES (Cloud Functions Gen2)                │
-│  Same processors as Discord flow                                            │
-│                                                                              │
-│  Steps:                                                                      │
-│  1. Receive Pub/Sub message (via Eventarc)                                   │
-│  2. Process command                                                          │
-│  3. Send response to provided webhook URL (direct)                            │
+│                    PROCESSOR SERVICE (Cloud Functions Gen2)                 │
+│  Example: processor-draw                                                    │
+│                                                                             │
+│  Steps:                                                                     │
+│  1. Receive Pub/Sub message (via Eventarc)                                  │
+│  2. Extract command, user info, webhook_url from message                    │
+│  3. Check rate limit (user-manager via identity token)                      │
+│  4. Execute command (e.g., draw pixel via canvas-service)                   │
+│  5. Increment user usage (user-manager via identity token)                  │
+│  6. Generate response payload                                               │
+│  7. Send HTTP POST to webhook_url provided by client                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
+                                   │ HTTP POST to webhook_url
+                                   │ Body: { "success": true, "data": {...} }
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              WEB CLIENT                                      │
-│  Receives JSON response (via webhook callback)                               │
+│                              WEB CLIENT                                     │
+│  Receives JSON response at webhook_url endpoint                             │
+│  Updates UI with response data                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -169,13 +195,13 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         DATA SERVICES                                        │
-│                                                                              │
+│                         DATA SERVICES                                       │
+│                                                                             │
 │  ┌─────────────────────────────┐  ┌─────────────────────────────┐           │
 │  │  CANVAS-SERVICE             │  │  USER-MANAGER               │           │
-│  │  (Cloud Functions Gen2)     │  │  (Cloud Functions Gen2)    │           │
-│  │  Authentication: Private     │  │  Authentication: Private    │           │
-│  │  (Identity Tokens)          │  │  (Identity Tokens)         │           │
+│  │  (Cloud Functions Gen2)     │  │  (Cloud Functions Gen2)     │           │
+│  │  Authentication: Private    │  │  Authentication: Private    │           │
+│  │  (Identity Tokens)          │  │  (Identity Tokens)          │           │
 │  │                             │  │                             │           │
 │  │  REST API:                  │  │  REST API:                  │           │
 │  │  • POST /canvas/draw        │  │  • GET /api/users/{id}      │           │
@@ -189,7 +215,7 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 │  │  • GCS (snapshots)          │  │  Storage:                   │           │
 │  │                             │  │  • Firestore (users)        │           │
 │  └─────────────────────────────┘  └─────────────────────────────┘           │
-│                                                                              │
+│                                                                             │
 │  ┌─────────────────────────────┐                                            │
 │  │  AUTH-SERVICE               │                                            │
 │  │  (Cloud Functions Gen2)     │                                            │
@@ -203,7 +229,7 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 │  │  • POST /auth/logout        │                                            │
 │  │                             │                                            │
 │  │  Storage:                   │                                            │
-│  │  • Firestore (sessions)      │                                            │
+│  │  • Firestore (sessions)     │                                            │
 │  └─────────────────────────────┘                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
             ▲                    ▲                    ▲
@@ -241,11 +267,13 @@ Discord → API Gateway → Proxy
 ```
 Web Client → API Gateway → Proxy
                               │
-                              ├─► Extract X-Session-ID / Bearer token
-                              ├─► Verify session via auth-service
-                              ├─► Parse JSON & enrich user data
-                              ├─► Process directly
-                              └─► Return JSON (200 OK)
+                              ├─► Extract X-Session-ID header or Authorization Bearer token
+                              ├─► Call auth-service POST /auth/verify with session ID
+                              ├─► Receive verified user info (user_id, username, avatar)
+                              ├─► Inject user info into interaction payload
+                              ├─► Parse JSON request (command, options, webhook_url)
+                              ├─► Process command directly
+                              └─► Return JSON response (200 OK)
 ```
 
 **Total time: < 1 second**
@@ -282,9 +310,12 @@ Discord → API Gateway → Proxy
 ```
 Web Client → API Gateway → Proxy
                               │
-                              ├─► Verify session via auth-service
-                              ├─► Inject verified user + command metadata
-                              ├─► Publish to Pub/Sub
+                              ├─► Extract X-Session-ID header
+                              ├─► Call auth-service POST /auth/verify
+                              ├─► Receive verified user info
+                              ├─► Inject user info into payload
+                              ├─► Extract webhook_url from request
+                              ├─► Publish to Pub/Sub with webhook_url
                               └─► Return 202 Accepted
                                      │
                                      ▼
@@ -293,11 +324,14 @@ Web Client → API Gateway → Proxy
                                      ▼ (Eventarc trigger)
                               Processor-Draw (Cloud Functions Gen2)
                                      │
-                              ├─► Process command (same logic as Discord)
-                              └─► Send response to provided webhook URL
+                              ├─► Check rate limit (user-manager)
+                              ├─► Draw pixel (canvas-service)
+                              ├─► Increment usage (user-manager)
+                              ├─► Generate response payload
+                              └─► POST to webhook_url provided by client
                                      │
                                      ▼
-                              Web client receives response
+                              Web client receives response at webhook_url
 ```
 
 **Total time:**
@@ -322,7 +356,8 @@ Web Client → API Gateway → Proxy
 ### Proxy Service
 
 - **Service**: `proxy`
-- **Authentication**: Private (IAM - API Gateway only)
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: API Gateway service account only
 - **Secrets**: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
 - **Responsibilities**:
   - Discord signature verification (for Discord interactions)
@@ -350,6 +385,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-base`
 - **Topic**: `commands-base`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN` (for Discord webhooks)
 - **Responsibilities**:
   - Process base commands (ping, hello, help)
@@ -359,6 +396,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-draw`
 - **Topic**: `commands-draw`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**:
   - `canvas-service` (REST API via identity token)
@@ -373,6 +412,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-snapshot`
 - **Topic**: `commands-snapshot`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**:
   - `canvas-service` (REST API via identity token)
@@ -385,6 +426,7 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-canvas-state`
 - **Topic**: `commands-canvas-state`
+- **Authentication**: Public (`--allow-unauthenticated`)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**:
   - `canvas-service` (REST API via identity token)
@@ -396,6 +438,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-stats`
 - **Topic**: `commands-stats`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**:
   - `canvas-service` (REST API via identity token)
@@ -408,6 +452,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-colors`
 - **Topic**: `commands-colors`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**: None (stateless)
 - **Responsibilities**:
@@ -418,6 +464,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 - **Service**: `processor-pixel-info`
 - **Topic**: `commands-pixel-info`
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Eventarc service account (automatic via Pub/Sub trigger)
 - **Secrets**: `DISCORD_BOT_TOKEN`
 - **Dependencies**:
   - `canvas-service` (REST API via identity token)
@@ -430,7 +478,8 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 #### Canvas Service
 
 - **Service**: `canvas-service`
-- **Authentication**: Private (identity tokens)
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Identity tokens (service-to-service)
 - **Role**: Data layer for canvas operations
 - **Storage**: Firestore (canvas state), GCS (snapshots)
 - **Configuration**: `setting.json`
@@ -438,14 +487,15 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 #### User Manager
 
 - **Service**: `user-manager`
-- **Authentication**: Private (identity tokens)
+- **Authentication**: Private (`--no-allow-unauthenticated` - IAM only)
+- **IAM Access**: Identity tokens (service-to-service)
 - **Role**: User management, rate limiting, statistics
 - **Storage**: Firestore (users collection)
 
 #### Auth Service
 
 - **Service**: `discord-auth-service`
-- **Authentication**: Public
+- **Authentication**: Public (`--allow-unauthenticated`)
 - **Role**: OAuth2 authentication for web clients
 - **Storage**: Firestore (sessions collection)
 
@@ -454,14 +504,14 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 #### Web Frontend
 
 - **Service**: `web-frontend`
-- **Authentication**: Public
+- **Authentication**: Public (`--allow-unauthenticated`)
 - **Role**: Web interface for canvas
 - **Pages**: Login, Canvas, Session (legacy)
 
 #### Discord Registrar
 
 - **Service**: `discord-utils`
-- **Authentication**: Public
+- **Authentication**: Public (`--allow-unauthenticated`)
 - **Secrets**: `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
 - **Role**: Register Discord slash commands
 
@@ -471,18 +521,24 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    AUTHENTICATION                        │
-│                                                          │
-│  Public Services:                                        │
+│                    AUTHENTICATION                       │
+│                                                         │
+│  Public Services (--allow-unauthenticated):             │
 │  • web-frontend (public access)                         │
-│  • auth-service (public access)                          │
-│  • discord-registrar (public access)                     │
-│                                                          │
-│  Private Services (IAM):                                 │
-│  • proxy (API Gateway service account only)              │
-│  • user-manager (identity tokens)                        │
-│  • canvas-service (identity tokens)                     │
-│  • processor-* (Eventarc service account only)           │
+│  • auth-service (public access)                         │
+│  • discord-registrar (public access)                    │
+│  • processor-canvas-state (public access)               │
+│                                                         │
+│  Private Services (--no-allow-unauthenticated):         │
+│  • proxy (IAM - API Gateway service account only)       │
+│  • user-manager (IAM - identity tokens)                 │
+│  • canvas-service (IAM - identity tokens)               │
+│  • processor-base (IAM - Eventarc service account)      │
+│  • processor-draw (IAM - Eventarc service account)      │
+│  • processor-snapshot (IAM - Eventarc service account)  │
+│  • processor-stats (IAM - Eventarc service account)     │
+│  • processor-colors (IAM - Eventarc service account)    │
+│  • processor-pixel-info (IAM - Eventarc service account)│
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -492,6 +548,15 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 - **Shared Clients**:
   - `shared/canvas_client.py` - Client for canvas-service (identity token auth)
   - `shared/user_client.py` - Client for user-manager (identity token auth)
+
+### Eventarc and Pub/Sub Triggers
+
+- **Eventarc**: Automatically creates Pub/Sub subscriptions for Cloud Functions Gen2
+- **IAM Permissions**: Eventarc service account automatically receives `roles/run.invoker` permission
+- **Private Processors**: Even though processors are private (`--no-allow-unauthenticated`), Eventarc can invoke them because:
+  - Eventarc service account has `roles/run.invoker` on the function
+  - This is automatically configured when deploying with `--trigger-topic`
+- **No Manual Subscription Creation**: Cloud Functions Gen2 + Eventarc handles subscription creation automatically
 
 ### Web Client Authentication
 
@@ -504,24 +569,24 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 ```
 ┌─────────────────────────────────────────────────────────┐
 │              SECRET MANAGER (GCP)                       │
-│                                                          │
-│  ┌──────────────────┐  ┌──────────────────┐              │
-│  │ DISCORD_PUBLIC_  │  │ DISCORD_BOT_     │              │
-│  │ KEY              │  │ TOKEN            │              │
-│  └──────────────────┘  └──────────────────┘              │
-│                                                          │
-│  ┌──────────────────┐  ┌──────────────────┐              │
-│  │ DISCORD_         │  │ DISCORD_CLIENT_  │              │
-│  │ APPLICATION_ID   │  │ ID/SECRET        │              │
-│  └──────────────────┘  └──────────────────┘              │
+│                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐             │
+│  │ DISCORD_PUBLIC_  │  │ DISCORD_BOT_     │             │
+│  │ KEY              │  │ TOKEN            │             │
+│  └──────────────────┘  └──────────────────┘             │
+│                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐             │
+│  │ DISCORD_         │  │ DISCORD_CLIENT_  │             │
+│  │ APPLICATION_ID   │  │ ID/SECRET        │             │
+│  └──────────────────┘  └──────────────────┘             │
 └─────────────────────────────────────────────────────────┘
             │                    │                    │
             │                    │                    │
             ▼                    ▼                    ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
 │  PROXY           │  │  REGISTRAR       │  │  PROCESSORS      │
-│  ✅ All secrets  │  │  ✅ BOT_TOKEN    │  │  ✅ BOT_TOKEN    │
-│                  │  │  ✅ APP_ID       │  │     (webhooks)   │
+│  All secrets     │  │  BOT_TOKEN       │  │  BOT_TOKEN       │
+│                  │  │  APP_ID          │  │  (webhooks)      │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
 
@@ -602,7 +667,7 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 3. **Create Pub/Sub topics**
 
    ```bash
-   make setup-microservices-pubsub
+   make setup-pubsub
    ```
 
 4. **Deploy data services**

@@ -374,6 +374,14 @@ async function handleCanvasStateResponse(data, silent = false) {
         throw new Error('No canvas payload in response');
     }
 
+    // Store pending draw pixels before overwriting canvasData
+    const pendingPixels = new Map();
+    if (CanvasState.pendingDraws) {
+        for (const [key, pixel] of CanvasState.pendingDraws.entries()) {
+            pendingPixels.set(key, pixel);
+        }
+    }
+
     let canvasSize = null;
     if (typeof canvasPayload.size === 'number' && canvasPayload.size > 0) {
         canvasSize = canvasPayload.size;
@@ -386,10 +394,10 @@ async function handleCanvasStateResponse(data, silent = false) {
     if (canvasSize) {
         CanvasState.canvasSize = canvasSize;
 
-        document.title = `Epitech Pixel War ${CanvasState.canvasSize}x${CanvasState.canvasSize}`;
+        document.title = `Pixel War ${CanvasState.canvasSize}x${CanvasState.canvasSize}`;
         const headerTitle = document.getElementById('canvasTitle');
         if (headerTitle) {
-            headerTitle.textContent = `Epitech Pixel War ${CanvasState.canvasSize}x${CanvasState.canvasSize}`;
+            headerTitle.textContent = `Pixel War ${CanvasState.canvasSize}x${CanvasState.canvasSize}`;
         } else {
             const headerH1 = document.querySelector('.header h1');
             if (headerH1) {
@@ -445,6 +453,21 @@ async function handleCanvasStateResponse(data, silent = false) {
         const rowData = pixels[y] || [];
         const row = [];
         for (let x = 0; x < CanvasState.canvasSize; x++) {
+            const key = `${x},${y}`;
+            if (pendingPixels.has(key)) {
+                const pendingPixel = pendingPixels.get(key);
+                const age = Date.now() - pendingPixel.timestamp;
+                if (age < 10000) {
+                    const serverColor = normalizeColorValue(rowData[x] || DEFAULT_COLOR);
+                    if (serverColor === normalizeColorValue(pendingPixel.color)) {
+                        CanvasState.pendingDraws.delete(key);
+                    }
+                    row.push(normalizeColorValue(pendingPixel.color));
+                    continue;
+                } else {
+                    CanvasState.pendingDraws.delete(key);
+                }
+            }
             row.push(normalizeColorValue(rowData[x] || DEFAULT_COLOR));
         }
         normalized.push(row);
@@ -483,6 +506,9 @@ async function drawPixel() {
 
     CanvasState.isDrawing = true;
     disableDrawButton();
+
+    // Stop auto-refresh during draw to prevent race conditions
+    stopAutoRefresh();
 
     updateUserActivity();
 
@@ -630,29 +656,95 @@ async function drawPixel() {
             if (!CanvasState.canvasData[y]) CanvasState.canvasData[y] = [];
             const previousColor = CanvasState.canvasData[y][x] || DEFAULT_COLOR;
             CanvasState.canvasData[y][x] = color;
+
+            // Track this pixel as pending
+            const key = `${x},${y}`;
+            CanvasState.pendingDraws.set(key, { color, timestamp: Date.now() });
+
             renderCanvas();
 
             try {
                 const result = await pollForDrawResult(token);
-                if (result && result.success) {
+                showLoading(false);
+                CanvasState.isDrawing = false;
+                enableDrawButton();
+
+                if (result && result.success && result.data) {
+                    const data = result.data;
+                    let isSuccess = false;
+                    let isError = false;
+
+                    if (data.status === 'success') {
+                        isSuccess = true;
+                    } else if (data.status === 'error') {
+                        isError = true;
+                    } else if (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
+                        const embed = data.data.embeds[0];
+                        const title = embed.title || '';
+                        const description = embed.description || '';
+                        const titleLower = title.toLowerCase();
+                        const descLower = description.toLowerCase();
+
+                        if (titleLower.includes('error') || titleLower.includes('failed') ||
+                            descLower.includes('error') || descLower.includes('failed') ||
+                            descLower.includes('invalid') || descLower.includes('unable')) {
+                            isError = true;
+                        } else {
+                            isSuccess = true;
+                        }
+                    } else if (data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
+                        isSuccess = true;
+                    } else if (data.token) {
+                        isSuccess = true;
+                    }
+
+                    if (isSuccess) {
+                        showNotification(`Pixel drawn successfully at (${x}, ${y})!`, 'success');
+                        addActivity(`Drew ${color} at (${x}, ${y})`);
+
+                        // Wait longer before reloading to ensure server has propagated the change
+                        setTimeout(async () => {
+                            try {
+                                await loadCanvas(true);
+                                updateUserActivity();
+                                startAutoRefresh();
+                            } catch (error) {
+                                console.error('[canvas.js] Error reloading canvas after draw:', error);
+                                showNotification('Canvas drawn but failed to refresh. Please reload page.', 'warning');
+                            }
+                        }, 3000); // Increased from 1500ms to 3000ms
+                    } else if (isError) {
+                        // Remove from pending draws on error
+                        const key = `${x},${y}`;
+                        CanvasState.pendingDraws.delete(key);
+
+                        if (CanvasState.canvasData[y]) {
+                            CanvasState.canvasData[y][x] = previousColor;
+                            renderCanvas();
+                        }
+                        const errorMessage = data.message || (data.data?.embeds?.[0]?.description) || 'Failed to draw pixel';
+                        showNotification(errorMessage, 'error');
+                    }
+                } else if (result && result.success) {
                     showNotification(`Pixel drawn successfully at (${x}, ${y})!`, 'success');
                     addActivity(`Drew ${color} at (${x}, ${y})`);
 
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-
-                    try {
-                        showLoading(true);
-                        await loadCanvas(true);
-                        showLoading(false);
-
-                        updateUserActivity();
-                        startAutoRefresh();
-                    } catch (error) {
-                        console.error('[canvas.js] Error reloading canvas after draw:', error);
-                        showLoading(false);
-                        showNotification('Canvas drawn but failed to refresh. Please reload page.', 'warning');
-                    }
+                    // Wait longer before reloading to ensure server has propagated the change
+                    setTimeout(async () => {
+                        try {
+                            await loadCanvas(true);
+                            updateUserActivity();
+                            startAutoRefresh();
+                        } catch (error) {
+                            console.error('[canvas.js] Error reloading canvas after draw:', error);
+                            showNotification('Canvas drawn but failed to refresh. Please reload page.', 'warning');
+                        }
+                    }, 3000); // Increased from 1500ms to 3000ms
                 } else {
+                    // Remove from pending draws on failure
+                    const key = `${x},${y}`;
+                    CanvasState.pendingDraws.delete(key);
+
                     if (CanvasState.canvasData[y]) {
                         CanvasState.canvasData[y][x] = previousColor;
                         renderCanvas();
@@ -661,6 +753,14 @@ async function drawPixel() {
                 }
             } catch (pollError) {
                 console.error('[canvas.js] Error in polling:', pollError);
+                showLoading(false);
+                CanvasState.isDrawing = false;
+                enableDrawButton();
+
+                // Remove from pending draws on error
+                const key = `${x},${y}`;
+                CanvasState.pendingDraws.delete(key);
+
                 if (CanvasState.canvasData[y]) {
                     CanvasState.canvasData[y][x] = previousColor;
                     renderCanvas();
@@ -778,13 +878,13 @@ async function pollForPixelInfoResult(token) {
 
 function getAvatarUrl(userId, avatarHash = null) {
     if (!userId) {
-        return `https://cdn.discordapp.com/embed/avatars/0.png`;
+        return `${DiscordAPI.EMBED_AVATAR_URL}0.png`;
     }
     if (avatarHash) {
-        return `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.png`;
+        return `${DiscordAPI.AVATAR_URL}${userId}/${avatarHash}.png`;
     }
     const discriminatorNum = parseInt(userId) % 5;
-    return `https://cdn.discordapp.com/embed/avatars/${discriminatorNum}.png`;
+    return `${DiscordAPI.EMBED_AVATAR_URL}${discriminatorNum}.png`;
 }
 
 function displayPixelInfoModal(pixelInfo) {
@@ -830,7 +930,7 @@ function displayPixelInfoModal(pixelInfo) {
                 <span class="pixel-info-label"><i class="fas fa-user"></i> Drawn by</span>
                 <div class="pixel-info-value">
                     <div class="pixel-info-user">
-                        <img src="${avatarUrl}" alt="${pixelInfo.drawnBy}" class="pixel-info-avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        <img src="${avatarUrl}" alt="${pixelInfo.drawnBy}" class="pixel-info-avatar" onerror="this.src='${DiscordAPI.EMBED_AVATAR_URL}0.png'">
                         <span class="pixel-info-username">${pixelInfo.drawnBy}</span>
                     </div>
                 </div>
@@ -844,7 +944,7 @@ function displayPixelInfoModal(pixelInfo) {
                 <span class="pixel-info-label"><i class="fas fa-user"></i> Drawn by</span>
                 <div class="pixel-info-value">
                     <div class="pixel-info-user">
-                        <img src="${avatarUrl}" alt="Unknown User" class="pixel-info-avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        <img src="${avatarUrl}" alt="Unknown User" class="pixel-info-avatar" onerror="this.src='${DiscordAPI.EMBED_AVATAR_URL}0.png'">
                         <span class="pixel-info-username">Unknown User</span>
                     </div>
                 </div>
@@ -1064,8 +1164,8 @@ function updateStatsDisplay(stats) {
                 contributorDiv.style.fontSize = '0.85rem';
 
                 const avatarUrl = contributor.avatar
-                    ? `https://cdn.discordapp.com/avatars/${contributor.id}/${contributor.avatar}.png`
-                    : `https://cdn.discordapp.com/embed/avatars/${(parseInt(contributor.id) % 5)}.png`;
+                    ? `${DiscordAPI.AVATAR_URL}${contributor.id}/${contributor.avatar}.png`
+                    : `${DiscordAPI.EMBED_AVATAR_URL}${(parseInt(contributor.id) % 5)}.png`;
 
                 const avatarImg = document.createElement('img');
                 avatarImg.src = avatarUrl;
@@ -1093,14 +1193,18 @@ function updateStatsDisplay(stats) {
         try {
             const date = new Date(stats.last_update);
             if (!isNaN(date.getTime())) {
-                lastUpdateEl.textContent = date.toLocaleString('en-US', {
+                const dateStr = date.toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
-                    day: 'numeric',
+                    day: 'numeric'
+                });
+                const timeStr = date.toLocaleTimeString('en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
-                    second: '2-digit'
+                    second: '2-digit',
+                    hour12: true
                 });
+                lastUpdateEl.innerHTML = `${dateStr}<br>${timeStr}`;
             } else {
                 lastUpdateEl.textContent = stats.last_update;
             }
@@ -1198,7 +1302,7 @@ async function pollForDrawResult(token) {
                 }
 
                 if (isSuccess) {
-                    return { success: true };
+                    return { success: true, data };
                 } else if (isError) {
                     const errorMessage = data.message || (data.data?.embeds?.[0]?.description) || 'Failed to draw pixel';
                     showNotification(errorMessage, 'error');
@@ -1230,13 +1334,13 @@ function updateUserDisplay() {
     const user = getUserData();
     if (user && user.username) {
         const avatarUrl = user.avatar
-            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-            : `https://cdn.discordapp.com/embed/avatars/${(parseInt(user.id) % 5)}.png`;
+            ? `${DiscordAPI.AVATAR_URL}${user.id}/${user.avatar}.png`
+            : `${DiscordAPI.EMBED_AVATAR_URL}${(parseInt(user.id) % 5)}.png`;
 
         userAvatarEl.src = avatarUrl;
         userAvatarEl.alt = user.username;
         userAvatarEl.onerror = function() {
-            this.src = `https://cdn.discordapp.com/embed/avatars/${(parseInt(user.id) % 5)}.png`;
+            this.src = `${DiscordAPI.EMBED_AVATAR_URL}${(parseInt(user.id) % 5)}.png`;
         };
 
         userUsernameEl.textContent = user.username;

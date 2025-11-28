@@ -155,11 +155,19 @@ def handle_users(request: Request, path: str, method: str):
         user_id = path.split('/')[-2]
         data = request.get_json() or {}
         command = data.get('command', 'unknown')
+        include_stats = data.get('include_stats', False)
 
         new_total = user_manager.increment_usage(user_id, command, correlation_id=correlation_id)
         response = {'status': 'incremented'}
         if new_total is not None:
             response['total_draws'] = new_total
+
+        if include_stats:
+            user_data = user_manager.get_user(user_id, correlation_id=correlation_id)
+            if user_data:
+                response['is_premium'] = user_data.get('is_premium', False)
+                response['is_banned'] = user_data.get('is_banned', False)
+
         return jsonify(response), 200
 
     # --- POST /api/users/{user_id}/ban ---
@@ -187,7 +195,6 @@ def handle_users(request: Request, path: str, method: str):
             data = request.get_json() or {}
             reason = data.get('reason')
 
-            # ban_user uses set(merge=True) so it works even if user doesn't exist yet
             success = user_manager.ban_user(user_id, reason, correlation_id=correlation_id)
             if success:
                 logger.info(

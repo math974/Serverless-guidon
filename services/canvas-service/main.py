@@ -85,6 +85,10 @@ def canvas_service(request: Request):
         if path == '/canvas/draw' and method == 'POST':
             return draw_pixel_handler(request, correlation_id)
 
+        # --- Canvas size ---
+        if path == '/canvas/size' and method == 'GET':
+            return get_canvas_size_handler(request, correlation_id)
+
         # --- Canvas state (array) ---
         if path == '/canvas/state' and method == 'GET':
             return get_canvas_state_handler(request, correlation_id)
@@ -159,6 +163,18 @@ def draw_pixel_handler(request: Request, correlation_id: str = None):
     except Exception as e:
         logger.error("Error in draw_pixel_handler", error=e, correlation_id=correlation_id)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def get_canvas_size_handler(request: Request, correlation_id: str = None):
+    """Handle GET /canvas/size - Get canvas size only (lightweight)."""
+    try:
+        canvas_manager = get_canvas_manager()
+        return jsonify({
+            'size': canvas_manager.CANVAS_SIZE
+        }), 200
+    except Exception as e:
+        logger.error("Error in get_canvas_size_handler", error=e, correlation_id=correlation_id)
+        return jsonify({'error': str(e)}), 500
 
 
 def get_canvas_state_handler(request: Request, correlation_id: str = None):

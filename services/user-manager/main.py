@@ -115,4 +115,4 @@ def handle_health(request: Request):
         'service': 'user-management-service',
         'framework': 'functions_framework',
         'cache_size': cache.size()
-    }), 200
+        }), 200

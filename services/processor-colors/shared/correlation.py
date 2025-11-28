@@ -54,8 +54,6 @@ def with_correlation(logger):
                     if args and isinstance(args[0], Request):
                         req = args[0]
                 except (ImportError, TypeError):
-                    # It's okay if Request can't be imported or args[0] isn't a Request instance;
-                    # just proceed without setting req.
                     pass
 
             if not req:

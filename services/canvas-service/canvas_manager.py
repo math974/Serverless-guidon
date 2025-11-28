@@ -7,6 +7,8 @@ from typing import List, Dict, Optional
 import io
 import json
 import sys
+import time
+from threading import Lock
 from google.cloud import firestore
 from google.cloud import storage
 from PIL import Image, ImageDraw, ImageFont
@@ -71,7 +73,6 @@ def load_settings() -> Dict:
 class CanvasManager:
     """Manages the shared canvas state in Firestore and snapshots in GCS."""
 
-    # --- Load settings ---
     _settings = load_settings()
     CANVAS_SIZE = _settings.get('canvas_size', 48)
     DEFAULT_COLOR = _settings.get('default_color', '#FFFFFF')
@@ -87,6 +88,11 @@ class CanvasManager:
         self.pixels_ref = self.db.collection('pixels')
         self.snapshots_ref = self.db.collection('snapshots')
 
+        self._canvas_cache = None
+        self._canvas_cache_time = 0
+        self._cache_ttl = 5
+        self._cache_lock = Lock()
+
         try:
             self.storage_client = storage.Client()
             self.bucket = self.storage_client.bucket(self.BUCKET_NAME)
@@ -100,6 +106,12 @@ class CanvasManager:
             self.gcs_available = False
 
         self._initialize_canvas()
+
+    def _invalidate_cache(self):
+        """Invalidate canvas cache after writes."""
+        with self._cache_lock:
+            self._canvas_cache = None
+            self._canvas_cache_time = 0
 
     def _initialize_canvas(self):
         """Initialize canvas with default state if it doesn't exist."""
@@ -144,55 +156,64 @@ class CanvasManager:
             pixel_id = f"{x}_{y}"
             pixel_key = f"pixel_{x}_{y}"
 
-            pixel_doc = self.pixels_ref.document(pixel_id).get()
-            previous_color = None
-            previous_user = None
+            transaction = self.db.transaction()
 
-            if pixel_doc.exists:
-                pixel_data = pixel_doc.to_dict()
-                previous_color = pixel_data.get('color')
-                previous_user = pixel_data.get('user_id')
+            def draw_pixel_transaction(transaction):
+                pixel_doc = self.pixels_ref.document(pixel_id).get(transaction=transaction)
+                canvas_doc = self.canvas_ref.get(transaction=transaction)
 
-            color_changed = previous_color != color
+                previous_color = None
+                previous_user = None
+                is_new_pixel = False
 
-            pixel_data = {
-                'x': x,
-                'y': y,
-                'color': color,
-                'user_id': user_id,
-                'username': username,
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'previous_color': previous_color,
-                'previous_user': previous_user,
-                'edit_count': firestore.Increment(1)
-            }
+                if pixel_doc.exists:
+                    pixel_data = pixel_doc.to_dict()
+                    previous_color = pixel_data.get('color')
+                    previous_user = pixel_data.get('user_id')
+                else:
+                    is_new_pixel = True
 
-            self.pixels_ref.document(pixel_id).set(pixel_data, merge=True)
+                color_changed = previous_color != color
 
-            canvas_update = {
-                pixel_key: color,
-                'last_update': firestore.SERVER_TIMESTAMP,
-                'last_update_by': user_id,
-                'last_update_username': username
-            }
+                pixel_data = {
+                    'x': x,
+                    'y': y,
+                    'color': color,
+                    'user_id': user_id,
+                    'username': username,
+                    'timestamp': firestore.SERVER_TIMESTAMP,
+                    'previous_color': previous_color,
+                    'previous_user': previous_user,
+                    'edit_count': firestore.Increment(1)
+                }
 
-            if not pixel_doc.exists:
-                canvas_update['total_pixels'] = firestore.Increment(1)
+                canvas_update = {
+                    pixel_key: color,
+                    'last_update': firestore.SERVER_TIMESTAMP,
+                    'last_update_by': user_id,
+                    'last_update_username': username
+                }
 
-            try:
-                canvas_doc = self.canvas_ref.get()
+                if is_new_pixel:
+                    canvas_update['total_pixels'] = firestore.Increment(1)
+
                 if canvas_doc.exists:
-                    contributors = set(canvas_doc.to_dict().get('unique_contributors', []))
+                    canvas_data = canvas_doc.to_dict()
+                    contributors = set(canvas_data.get('unique_contributors', []))
                     contributors.add(user_id)
                     canvas_update['unique_contributors'] = list(contributors)
-            except Exception as e:
-                logger.warning(
-                    "Could not update contributors",
-                    error=e,
-                    user_id=user_id
-                )
+                else:
+                    canvas_update['unique_contributors'] = [user_id]
 
-            self.canvas_ref.set(canvas_update, merge=True)
+                transaction.set(self.pixels_ref.document(pixel_id), pixel_data, merge=True)
+                transaction.set(self.canvas_ref, canvas_update, merge=True)
+
+                return previous_color, color_changed
+
+            draw_pixel_transaction = firestore.transactional(draw_pixel_transaction)
+            previous_color, color_changed = draw_pixel_transaction(transaction)
+
+            self._invalidate_cache()
 
             return {
                 'success': True,
@@ -216,12 +237,27 @@ class CanvasManager:
                 'error': str(e)
             }
 
-    def get_canvas_state(self) -> Dict[str, str]:
-        """Get current canvas state as a dictionary of pixel colors."""
+    def get_canvas_state(self, use_cache=True) -> Dict[str, str]:
+        """Get current canvas state as a dictionary of pixel colors.
+
+        Args:
+            use_cache: If True, use cached data if available and fresh (default: True)
+        """
+        if use_cache:
+            with self._cache_lock:
+                now = time.time()
+                if self._canvas_cache is not None and (now - self._canvas_cache_time) < self._cache_ttl:
+                    return self._canvas_cache.copy()
+
         doc = self.canvas_ref.get()
         if doc.exists:
             data = doc.to_dict()
             pixels = {k: v for k, v in data.items() if k.startswith('pixel_')}
+
+            with self._cache_lock:
+                self._canvas_cache = pixels
+                self._canvas_cache_time = time.time()
+
             return pixels
         return {}
 
@@ -242,16 +278,21 @@ class CanvasManager:
 
         return canvas
 
-    def get_canvas_stats(self, user_client=None, correlation_id: str = None) -> Dict:
+    def get_canvas_stats(self, user_client=None, correlation_id: str = None, canvas_data=None) -> Dict:
         """Get canvas statistics.
 
         Args:
             user_client: Optional UserManagementClient to fetch contributor details
             correlation_id: Optional correlation ID for logging
+            canvas_data: Optional pre-fetched canvas data to avoid redundant reads
         """
-        doc = self.canvas_ref.get()
-        if doc.exists:
-            data = doc.to_dict()
+        if canvas_data is None:
+            doc = self.canvas_ref.get()
+            data = doc.to_dict() if doc.exists else {}
+        else:
+            data = canvas_data
+
+        if data:
 
             unique_contributors = data.get('unique_contributors', [])
             if isinstance(unique_contributors, set):
