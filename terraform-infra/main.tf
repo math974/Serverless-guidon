@@ -164,13 +164,12 @@ module "api_gateway" {
   api_id                = var.api_id
   gateway_id            = var.gateway_id
   api_config_id_prefix  = var.api_config_id_prefix
-  openapi_spec_path     = var.openapi_spec_path
-  openapi_document_path = var.openapi_document_path
   labels                = var.labels
   service_account_email = module.service_accounts["api-gateway"].email
 
   # Utiliser le template OpenAPI paramétré avec les URLs backend des fonctions
-  openapi_template_path = "specs/openapi-template.yaml"
+  openapi_spec_path     = var.openapi_spec_path
+  openapi_template_path = var.openapi_spec_path
   openapi_variables = {
     PROXY_URL = module.functions["proxy"].function_url
     AUTH_URL  = module.functions["auth-service"].function_url
