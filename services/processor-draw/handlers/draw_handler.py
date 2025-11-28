@@ -3,6 +3,7 @@ import re
 import os
 import sys
 from typing import Dict, Optional, Tuple, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from command_registry import CommandHandler
@@ -73,14 +74,6 @@ def handle_draw(interaction: dict = None):
     if not user_id:
         return create_error_embed("Unknown user", "Unable to resolve your Discord identity.")
 
-    canvas_state = canvas_client.get_canvas_state(correlation_id=correlation_id)
-    if canvas_state.get('error'):
-        return create_error_embed("Service unavailable", "Unable to retrieve canvas information.")
-
-    canvas_size = canvas_state.get('size', CANVAS_SIZE)
-    if not isinstance(canvas_size, int) or canvas_size <= 0:
-        canvas_size = CANVAS_SIZE
-
     options = extract_options(interaction)
     x = options.get('x')
     y = options.get('y')
@@ -92,12 +85,6 @@ def handle_draw(interaction: dict = None):
             "Specify both `x` and `y` coordinates. Example: `/draw x:10 y:12 color:#FF0000`."
         )
 
-    if not (0 <= x < canvas_size and 0 <= y < canvas_size):
-        return create_error_embed(
-            "Invalid coordinates",
-            f"Coordinates must be between 0 and {canvas_size - 1} (canvas size: {canvas_size}×{canvas_size})."
-        )
-
     ok, color_hex, color_error = _parse_color(color_input)
     if not ok or not color_hex:
         return create_error_embed("Invalid color", color_error or "Unsupported color value.")
@@ -106,12 +93,39 @@ def handle_draw(interaction: dict = None):
     if not user_client:
         return create_error_embed("Service unavailable", "User service is unavailable. Please try again.")
 
-    try:
-        rate_limit = user_client.check_rate_limit(user_id, username, 'draw', correlation_id=correlation_id)
-        if not rate_limit.get('allowed', True):
-            return rate_limit_embed(rate_limit, 'draw')
-    except Exception as exc:
-        logger.warning("Rate limit check failed, allowing draw", error=exc, correlation_id=correlation_id, user_id=user_id)
+    # Parallelize canvas_size and rate_limit checks
+    canvas_size = None
+    rate_limit = None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # Submit both calls in parallel
+        canvas_size_future = executor.submit(canvas_client.get_canvas_size, correlation_id)
+        rate_limit_future = executor.submit(user_client.check_rate_limit, user_id, username, 'draw', correlation_id)
+
+        # Wait for both to complete
+        try:
+            canvas_size = canvas_size_future.result(timeout=5)
+            if canvas_size is None:
+                canvas_size = CANVAS_SIZE
+                logger.warning("Could not get canvas size from service, using default", default_size=CANVAS_SIZE, correlation_id=correlation_id)
+        except Exception as exc:
+            logger.warning("Failed to get canvas size, using default", error=exc, correlation_id=correlation_id)
+            canvas_size = CANVAS_SIZE
+
+        try:
+            rate_limit = rate_limit_future.result(timeout=5)
+        except Exception as exc:
+            logger.warning("Rate limit check failed, allowing draw", error=exc, correlation_id=correlation_id, user_id=user_id)
+            rate_limit = {'allowed': True}
+
+    if not rate_limit.get('allowed', True):
+        return rate_limit_embed(rate_limit, 'draw')
+
+    if not (0 <= x < canvas_size and 0 <= y < canvas_size):
+        return create_error_embed(
+            "Invalid coordinates",
+            f"Coordinates must be between 0 and {canvas_size - 1} (canvas size: {canvas_size}×{canvas_size})."
+        )
 
     canvas_result = canvas_client.draw_pixel(x, y, color_hex, user_id, username, correlation_id)
     if not canvas_result.get('success'):
@@ -122,28 +136,30 @@ def handle_draw(interaction: dict = None):
     stats = {}
     if color_changed:
         try:
-            new_total_draws = user_client.increment_usage(user_id, 'draw', correlation_id=correlation_id)
-            if new_total_draws is not None:
-                stats['total_draws'] = new_total_draws
+            increment_result = user_client.increment_usage(user_id, 'draw', correlation_id=correlation_id, include_stats=True)
+            if increment_result:
+                stats['total_draws'] = increment_result.get('total_draws', 0)
+                stats['is_premium'] = increment_result.get('is_premium', False)
+                stats['is_banned'] = increment_result.get('is_banned', False)
                 logger.debug(
                     "Usage incremented successfully",
                     correlation_id=correlation_id,
                     user_id=user_id,
-                    total_draws=new_total_draws
+                    total_draws=stats['total_draws']
                 )
             else:
                 logger.warning("Increment usage returned None", correlation_id=correlation_id, user_id=user_id)
         except Exception as exc:
             logger.warning("Failed to increment draw usage", error=exc, correlation_id=correlation_id, user_id=user_id)
 
-    try:
-        user_stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
-        if 'total_draws' not in stats:
+    if not stats:
+        try:
+            user_stats = user_client.get_user_stats(user_id, correlation_id=correlation_id) or {}
             stats['total_draws'] = user_stats.get('total_draws', 0)
-        stats['is_premium'] = user_stats.get('is_premium', False)
-        stats['is_banned'] = user_stats.get('is_banned', False)
-    except Exception as exc:
-        logger.warning("Failed to fetch user stats", error=exc, correlation_id=correlation_id, user_id=user_id)
+            stats['is_premium'] = user_stats.get('is_premium', False)
+            stats['is_banned'] = user_stats.get('is_banned', False)
+        except Exception as exc:
+            logger.warning("Failed to fetch user stats", error=exc, correlation_id=correlation_id, user_id=user_id)
 
     fields = []
     fields.append({'name': 'Coordinates', 'value': f'**X:** {x} | **Y:** {y}', 'inline': False})
