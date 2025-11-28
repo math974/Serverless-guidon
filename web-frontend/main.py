@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import threading
+import json
 from flask import Flask, request as flask_request, make_response, jsonify, send_from_directory
 import requests
 
@@ -13,8 +14,6 @@ from shared.correlation import with_correlation
 app = Flask(__name__)
 logger, tracing = init_observability('web-frontend', app=None)
 
-# In-memory storage for responses (token -> response_data)
-# In a production environment with multiple instances, this should be Redis or Firestore
 responses = {}
 responses_lock = threading.Lock()
 
@@ -24,11 +23,10 @@ def cleanup_responses():
         time.sleep(60)
         with responses_lock:
             now = time.time()
-            to_remove = [k for k, v in responses.items() if now - v['timestamp'] > 300]  # 5 minutes TTL
+            to_remove = [k for k, v in responses.items() if now - v['timestamp'] > 300]
             for k in to_remove:
                 del responses[k]
 
-# Start cleanup thread
 cleanup_thread = threading.Thread(target=cleanup_responses, daemon=True)
 cleanup_thread.start()
 
@@ -92,6 +90,7 @@ def webhook_handler():
             data_keys=list(data.keys())[:10]
         )
 
+        # Store response for polling
         with responses_lock:
             responses[token] = {
                 'data': data,
@@ -186,25 +185,17 @@ def get_canvas_size():
     try:
         canvas_service_url = os.environ.get('CANVAS_SERVICE_URL', GATEWAY_URL)
         response = requests.get(
-            f"{canvas_service_url}/canvas/state",
-            timeout=2
+            f"{canvas_service_url}/canvas/size",
+            timeout=0.5
         )
         if response.status_code == 200:
             data = response.json()
             canvas_size = data.get('size')
             if canvas_size:
                 return canvas_size
-        response = requests.get(
-            f"{canvas_service_url}/canvas/stats",
-            timeout=2
-        )
-        if response.status_code == 200:
-            data = response.json()
-            canvas_size = data.get('canvas_size') or data.get('size')
-            if canvas_size:
-                return canvas_size
-    except Exception as e:
-        logger.debug("Could not fetch canvas size from API", error=e)
+    except (requests.exceptions.RequestException, Exception) as e:
+        error_msg = str(e) if e else "Unknown error"
+        logger.debug("Could not fetch canvas size from API", error=error_msg)
 
     return 100
 
@@ -220,7 +211,6 @@ def login_page():
         with open(template_path, 'r', encoding='utf-8') as f:
             html = f.read()
 
-        # Get canvas size dynamically
         canvas_size = get_canvas_size()
 
         html = html.replace('{{OAUTH_LOGIN_URL}}', OAUTH_LOGIN_URL)
@@ -228,6 +218,9 @@ def login_page():
 
         response = make_response(html)
         response.headers["Content-Type"] = "text/html; charset=utf-8"
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
         return response
     except FileNotFoundError:
         logger.error("Login template not found", template_path=template_path)
@@ -272,11 +265,15 @@ if (window.SESSION_ID) {{
                 # Fallback: inject before </head>
                 html = html.replace('</head>', f'{config_script}\n</head>')
 
+
         except FileNotFoundError:
             logger.error("Canvas template not found", template_path=template_path)
             html = "<html><body><h1>Error: Canvas template not found</h1></body></html>"
         response = make_response(html)
         response.headers["Content-Type"] = "text/html; charset=utf-8"
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
         return response
     except Exception as e:
         logger.error("Error generating canvas page HTML", error=e, correlation_id=correlation_id)
@@ -326,7 +323,12 @@ def session_page():
 @app.route('/js/<path:filename>')
 def serve_js(filename):
     js_dir = os.path.join(os.path.dirname(__file__), 'js')
-    return send_from_directory(js_dir, filename)
+    clean_filename = filename.split('?')[0]
+    response = send_from_directory(js_dir, clean_filename)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/css/<path:filename>')
 def serve_css(filename):
@@ -356,4 +358,4 @@ def verify_session(session_id: str) -> dict:
     return None
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, ssl_context=('cert.pem', 'key.pem'))
+    app.run(host='0.0.0.0', port=8080, debug=False)
