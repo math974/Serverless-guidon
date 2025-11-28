@@ -30,10 +30,6 @@ def cleanup_responses():
 cleanup_thread = threading.Thread(target=cleanup_responses, daemon=True)
 cleanup_thread.start()
 
-OAUTH_LOGIN_URL = os.environ.get(
-    "OAUTH_LOGIN_URL",
-    "https://guidon-60g097ca.ew.gateway.dev/auth/login"
-)
 GATEWAY_URL = os.environ.get(
     "GATEWAY_URL",
     "https://guidon-60g097ca.ew.gateway.dev"
@@ -209,7 +205,7 @@ def login_page():
 
         canvas_size = get_canvas_size()
 
-        html = html.replace('{{OAUTH_LOGIN_URL}}', OAUTH_LOGIN_URL)
+        html = html.replace('{{OAUTH_LOGIN_URL}}', f"{GATEWAY_URL}/auth/login")
         html = html.replace('{{CANVAS_SIZE}}', str(canvas_size))
 
         response = make_response(html)
@@ -302,10 +298,11 @@ def session_page():
             <a class='btn' href='/canvas?session={session_id}'>Go to Canvas</a>
             """
         else:
+            oauth_url = f"{GATEWAY_URL}/auth/login" if GATEWAY_URL else "#"
             content = f"""
             <h1>Welcome to Guidon</h1>
             <p>Connect with Discord to start drawing on the shared canvas.</p>
-            <a class='btn' href='{OAUTH_LOGIN_URL or "#"}'>Connect with Discord</a>
+            <a class='btn' href='{oauth_url}'>Connect with Discord</a>
             <p class='muted'>Click the button above to authenticate with Discord.</p>
             """
         html = html.replace('{{CONTENT}}', content)
