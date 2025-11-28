@@ -38,10 +38,6 @@ GATEWAY_URL = os.environ.get(
     "GATEWAY_URL",
     "https://guidon-60g097ca.ew.gateway.dev"
 )
-AUTH_SERVICE_URL = os.environ.get(
-    "AUTH_SERVICE_URL",
-    GATEWAY_URL
-)
 
 WEB_FRONTEND_URL = os.environ.get("WEB_FRONTEND_URL")
 WEBHOOK_URL = f"{WEB_FRONTEND_URL}/webhook" if WEB_FRONTEND_URL else None
@@ -342,10 +338,10 @@ def serve_assets(filename):
 
 def verify_session(session_id: str) -> dict:
     try:
-        if not AUTH_SERVICE_URL:
+        if not GATEWAY_URL:
             return None
         response = requests.post(
-            f"{AUTH_SERVICE_URL}/auth/verify",
+            f"{GATEWAY_URL}/auth/verify",
             json={'session_id': session_id},
             timeout=2
         )

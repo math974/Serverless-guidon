@@ -4,4 +4,3 @@ entrypoint: gunicorn -b :$PORT --timeout 60 --workers 2 main:app
 env_variables:
   WEB_FRONTEND_URL: https://serverless-ejguidon-dev.ew.r.appspot.com
   GATEWAY_URL: https://guidon-60g097ca.ew.gateway.dev
-  AUTH_SERVICE_URL: https://guidon-60g097ca.ew.gateway.dev
