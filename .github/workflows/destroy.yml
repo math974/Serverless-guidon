@@ -1,4 +1,4 @@
-name: 🔥 Destroy Infrastructure (DANGER)
+name: Destroy Infrastructure (DANGER)
 
 on:
   workflow_dispatch:
