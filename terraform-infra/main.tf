@@ -148,7 +148,12 @@ module "functions" {
   allow_public_access = false
   authorized_invokers = []
 
-  depends_on = [module.service_accounts]
+  depends_on = [
+    module.service_accounts,
+    google_secret_manager_secret_version.gcs_canvas_bucket_secret_version,
+    google_secret_manager_secret_version.oauth_login_url_initial,
+    google_secret_manager_secret_version.discord_redirect_uri_initial
+  ]
 }
 
 module "api_gateway" {
@@ -179,6 +184,32 @@ module "api_gateway" {
   openapi_content_hash = filesha256(var.openapi_spec_path)
 
   depends_on = [module.service_accounts]
+}
+
+# ============================================================================
+# PHASE 2 : Mise à jour des secrets avec les vraies URLs de l'API Gateway
+# ============================================================================
+
+# Mise à jour avec la vraie URL OAuth Login
+resource "google_secret_manager_secret_version" "oauth_login_url_real" {
+  secret      = google_secret_manager_secret.oauth_login_url.id
+  secret_data = "${module.api_gateway.gateway_url}/auth/login"
+
+  depends_on = [
+    google_secret_manager_secret_version.oauth_login_url_initial,
+    module.api_gateway
+  ]
+}
+
+# Mise à jour avec la vraie URL Discord Redirect
+resource "google_secret_manager_secret_version" "discord_redirect_uri_real" {
+  secret      = google_secret_manager_secret.discord_redirect_uri.id
+  secret_data = "${module.api_gateway.gateway_url}/auth/callback"
+
+  depends_on = [
+    google_secret_manager_secret_version.discord_redirect_uri_initial,
+    module.api_gateway
+  ]
 }
 
 module "firestore" {
@@ -352,7 +383,11 @@ resource "google_secret_manager_secret_iam_member" "gcs_bucket_access" {
   depends_on = [module.service_accounts]
 }
 
-# Secret pour l'URL de login OAuth (construite automatiquement)
+# ============================================================================
+# PHASE 1 : Secrets basés sur l'API Gateway (valeurs temporaires)
+# ============================================================================
+
+# Secret pour l'URL de login OAuth
 resource "google_secret_manager_secret" "oauth_login_url" {
   project   = var.project_id
   secret_id = "OAUTH_LOGIN_URL"
@@ -364,24 +399,17 @@ resource "google_secret_manager_secret" "oauth_login_url" {
   labels = var.labels
 }
 
-resource "google_secret_manager_secret_version" "oauth_login_url_version" {
+# Valeur temporaire initiale pour OAUTH_LOGIN_URL (pour le premier déploiement)
+resource "google_secret_manager_secret_version" "oauth_login_url_initial" {
   secret      = google_secret_manager_secret.oauth_login_url.id
-  secret_data = "${module.api_gateway.gateway_url}/auth/login"
+  secret_data = "https://pending-api-gateway-deployment.example.com/auth/login"
 
-  depends_on = [module.api_gateway]
+  lifecycle {
+    ignore_changes = [secret_data] # Ne pas écraser la vraie valeur après le premier apply
+  }
 }
 
-# Accès au secret OAUTH_LOGIN_URL pour les Cloud Functions
-resource "google_secret_manager_secret_iam_member" "oauth_login_url_access" {
-  project   = var.project_id
-  secret_id = google_secret_manager_secret.oauth_login_url.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = module.service_accounts["cloud-functions"].member
-
-  depends_on = [module.service_accounts]
-}
-
-# Secret pour l'URI de redirection Discord OAuth (construite automatiquement)
+# Secret pour l'URI de redirection Discord OAuth
 resource "google_secret_manager_secret" "discord_redirect_uri" {
   project   = var.project_id
   secret_id = "DISCORD_REDIRECT_URI"
@@ -393,11 +421,24 @@ resource "google_secret_manager_secret" "discord_redirect_uri" {
   labels = var.labels
 }
 
-resource "google_secret_manager_secret_version" "discord_redirect_uri_version" {
+# Valeur temporaire initiale pour DISCORD_REDIRECT_URI (pour le premier déploiement)
+resource "google_secret_manager_secret_version" "discord_redirect_uri_initial" {
   secret      = google_secret_manager_secret.discord_redirect_uri.id
-  secret_data = "${module.api_gateway.gateway_url}/auth/callback"
+  secret_data = "https://pending-api-gateway-deployment.example.com/auth/callback"
 
-  depends_on = [module.api_gateway]
+  lifecycle {
+    ignore_changes = [secret_data] # Ne pas écraser la vraie valeur après le premier apply
+  }
+}
+
+# Accès au secret OAUTH_LOGIN_URL pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "oauth_login_url_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.oauth_login_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
 }
 
 # Accès au secret DISCORD_REDIRECT_URI pour les Cloud Functions
