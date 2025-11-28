@@ -14,6 +14,7 @@ const CanvasState = {
     autoRefreshTimer: null,
     lastUserActivity: Date.now(),
     isDrawing: false,
+    pendingDraws: new Map(),
 
     // DOM elements
     canvas: null,
@@ -30,3 +31,10 @@ const API = {
     WEBHOOK_URL: typeof window.WEBHOOK_URL !== 'undefined' ? window.WEBHOOK_URL : null
 };
 
+const DiscordAPI = {
+    BASE_URL: 'https://discord.com',
+    API_BASE_URL: 'https://discord.com/api/v10',
+    CDN_BASE_URL: 'https://cdn.discordapp.com',
+    AVATAR_URL: 'https://cdn.discordapp.com/avatars/',
+    EMBED_AVATAR_URL: 'https://cdn.discordapp.com/embed/avatars/',
+};
