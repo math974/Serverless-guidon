@@ -71,6 +71,11 @@ functions = {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
       }
     ]
   }
@@ -173,6 +178,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
         version = "latest"
       }
     ]

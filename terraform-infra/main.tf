@@ -320,3 +320,32 @@ resource "google_secret_manager_secret_iam_member" "url_secrets_access" {
 
   depends_on = [module.service_accounts]
 }
+
+# Secret pour le nom du bucket GCS canvas snapshots
+resource "google_secret_manager_secret" "gcs_canvas_bucket" {
+  project   = var.project_id
+  secret_id = "GCS_CANVAS_BUCKET"
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+resource "google_secret_manager_secret_version" "gcs_canvas_bucket_version" {
+  secret      = google_secret_manager_secret.gcs_canvas_bucket.id
+  secret_data = module.gcs_buckets["canvas-snapshots"].bucket_name
+
+  depends_on = [module.gcs_buckets]
+}
+
+# Accès au secret GCS_CANVAS_BUCKET pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "gcs_bucket_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gcs_canvas_bucket.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
+}
