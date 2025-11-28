@@ -175,6 +175,9 @@ module "api_gateway" {
     AUTH_URL  = module.functions["auth-service"].function_url
   }
 
+  # Hash du fichier OpenAPI pour forcer le redéploiement quand le contenu change
+  openapi_content_hash = filesha256(var.openapi_spec_path)
+
   depends_on = [module.service_accounts]
 }
 

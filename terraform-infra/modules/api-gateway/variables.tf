@@ -58,6 +58,12 @@ variable "service_account_email" {
   type        = string
 }
 
+variable "openapi_content_hash" {
+  description = "Hash du contenu du fichier OpenAPI pour forcer le redéploiement lors de modifications"
+  type        = string
+  default     = null
+}
+
 
 
 

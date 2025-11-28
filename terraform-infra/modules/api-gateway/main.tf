@@ -44,6 +44,14 @@ resource "google_api_gateway_api_config" "config" {
     }
   }
 
+  # Labels pour forcer le redéploiement quand le contenu OpenAPI change
+  labels = var.openapi_content_hash != null ? merge(
+    var.labels,
+    {
+      "openapi-hash" = substr(var.openapi_content_hash, 0, 63)
+    }
+  ) : var.labels
+
   lifecycle {
     create_before_destroy = true
   }
