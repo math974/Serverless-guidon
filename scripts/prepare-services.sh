@@ -22,7 +22,7 @@ SERVICES=(
     "services/processor-stats"
     "services/processor-colors"
     "services/processor-pixel-info"
-    "services/web-frontend"
+    "web-frontend"
 )
 
 for service_dir in "${SERVICES[@]}"; do

@@ -4,7 +4,7 @@ set -euo pipefail
 
 : "${PROJECT_ID:=serverless-ejguidon-dev}"
 : "${SERVICE_NAME:=web-frontend}"
-: "${SOURCE_DIR:=services/web-frontend}"
+: "${SOURCE_DIR:=web-frontend}"
 : "${MIN_INSTANCES:=1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
