@@ -21,6 +21,33 @@ data "google_project" "project" {
   project_id = var.project_id
 }
 
+# Secrets pour les URLs des services - créés AVANT les fonctions avec des valeurs temporaires
+# Cela évite la dépendance circulaire
+resource "google_secret_manager_secret" "service_urls" {
+  for_each = var.service_url_secrets
+
+  project   = var.project_id
+  secret_id = each.key
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+# Valeurs temporaires initiales (pour le premier déploiement)
+resource "google_secret_manager_secret_version" "initial_urls" {
+  for_each = var.service_url_secrets
+
+  secret      = google_secret_manager_secret.service_urls[each.key].id
+  secret_data = "https://pending-deployment-${lower(each.key)}.example.com"
+
+  lifecycle {
+    ignore_changes = [secret_data] # Ne pas écraser les vraies valeurs après le premier apply
+  }
+}
+
 # Service Accounts avec configuration depuis tfvars
 module "service_accounts" {
   source   = "./modules/service-account"
@@ -269,34 +296,17 @@ module "pubsub" {
   depends_on = [module.functions]
 }
 
-# Secrets automatiques pour les URLs des services
-# Ces secrets sont automatiquement peuplés avec les URLs des Cloud Functions déployées
-resource "google_secret_manager_secret" "service_urls" {
-  for_each = toset(["USER_MANAGER_URL", "CANVAS_SERVICE_URL", "AUTH_SERVICE_URL"])
+# Mise à jour des secrets avec les vraies URLs après le déploiement des fonctions
+resource "google_secret_manager_secret_version" "real_urls" {
+  for_each = var.service_url_secrets
 
-  project   = var.project_id
-  secret_id = each.value
+  secret      = google_secret_manager_secret.service_urls[each.key].id
+  secret_data = module.functions[each.value].function_url
 
-  replication {
-    auto {}
-  }
-
-  labels = var.labels
-}
-
-resource "google_secret_manager_secret_version" "user_manager_url" {
-  secret      = google_secret_manager_secret.service_urls["USER_MANAGER_URL"].id
-  secret_data = module.functions["user-manager"].function_url
-}
-
-resource "google_secret_manager_secret_version" "canvas_service_url" {
-  secret      = google_secret_manager_secret.service_urls["CANVAS_SERVICE_URL"].id
-  secret_data = module.functions["canvas-service"].function_url
-}
-
-resource "google_secret_manager_secret_version" "auth_service_url" {
-  secret      = google_secret_manager_secret.service_urls["AUTH_SERVICE_URL"].id
-  secret_data = module.functions["auth-service"].function_url
+  depends_on = [
+    google_secret_manager_secret_version.initial_urls,
+    module.functions
+  ]
 }
 
 # Donner accès aux secrets des URLs aux service accounts des Cloud Functions

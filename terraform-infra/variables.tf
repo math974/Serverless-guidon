@@ -119,6 +119,16 @@ variable "gcs_buckets" {
   default = {}
 }
 
+variable "service_url_secrets" {
+  description = "Map des secrets pour les URLs des services {secret_name => function_name}"
+  type        = map(string)
+  default = {
+    "USER_MANAGER_URL"   = "user-manager"
+    "CANVAS_SERVICE_URL" = "canvas-service"
+    "AUTH_SERVICE_URL"   = "auth-service"
+  }
+}
+
 
 
 
