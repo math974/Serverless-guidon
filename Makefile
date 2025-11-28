@@ -1,4 +1,4 @@
-.PHONY: help deploy-all deploy-proxy deploy-processor-base deploy-registrar deploy-auth deploy-user-manager deploy-canvas-service deploy-web-frontend deploy-processor-draw deploy-processor-snapshot deploy-processor-canvas-state deploy-processor-stats deploy-processor-colors deploy-processor-pixel-info setup-apis setup-pubsub setup-microservices-pubsub setup-firestore setup-gcs setup-all grant-eventarc-permissions register-commands update-gateway prepare-services test-health test-user-manager clean
+.PHONY: help deploy-all deploy-proxy deploy-processor-base deploy-registrar deploy-auth deploy-user-manager deploy-canvas-service deploy-web-frontend deploy-processor-draw deploy-processor-snapshot deploy-processor-canvas-state deploy-processor-stats deploy-processor-colors deploy-processor-pixel-info setup-apis setup-pubsub setup-firestore setup-gcs setup-all grant-eventarc-permissions register-commands update-gateway prepare-services test-health test-user-manager clean
 
 # Default variables
 PROJECT_ID ?= serverless-ejguidon-dev
@@ -25,9 +25,6 @@ setup-apis: ## Enable all required GCP APIs
 
 setup-pubsub: ## Setup Pub/Sub topics and subscriptions
 	@PROJECT_ID=$(PROJECT_ID) $(SCRIPTS_DIR)/setup-pubsub.sh
-
-setup-microservices-pubsub: ## Setup microservices Pub/Sub topics and subscriptions
-	@PROJECT_ID=$(PROJECT_ID) $(SCRIPTS_DIR)/setup-microservices-pubsub.sh
 
 setup-firestore: ## Create Firestore database
 	@echo "Creating Firestore database..."
