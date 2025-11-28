@@ -10,10 +10,12 @@ from shared.observability import init_observability, traced_function
 from shared.correlation import with_correlation
 from shared.auth_utils import verify_service_auth
 from canvas_manager import CanvasManager
+from shared.user_client import UserManagementClient
 
 logger, tracing = init_observability('canvas-service', app=None)
 
 _canvas_manager = None
+_user_client = None
 
 def get_canvas_manager():
     """Get or create CanvasManager instance."""
@@ -21,6 +23,17 @@ def get_canvas_manager():
     if _canvas_manager is None:
         _canvas_manager = CanvasManager()
     return _canvas_manager
+
+def get_user_client():
+    """Get or create UserManagementClient instance."""
+    global _user_client
+    if _user_client is None:
+        try:
+            _user_client = UserManagementClient()
+        except Exception as e:
+            logger.warning("Failed to initialize UserManagementClient", error=e)
+            _user_client = None
+    return _user_client
 
 
 def add_cors_headers(response):
@@ -153,7 +166,8 @@ def get_canvas_state_handler(request: Request, correlation_id: str = None):
     try:
         canvas_manager = get_canvas_manager()
         canvas_array = canvas_manager.get_canvas_array()
-        stats = canvas_manager.get_canvas_stats()
+        user_client = get_user_client()
+        stats = canvas_manager.get_canvas_stats(user_client=user_client, correlation_id=correlation_id)
 
         # Convert Firestore timestamps to ISO strings
         if stats.get('last_update') and hasattr(stats['last_update'], 'isoformat'):
@@ -195,7 +209,8 @@ def get_canvas_stats_handler(request: Request, correlation_id: str = None):
     """Handle GET /canvas/stats - Get canvas statistics."""
     try:
         canvas_manager = get_canvas_manager()
-        stats = canvas_manager.get_canvas_stats()
+        user_client = get_user_client()
+        stats = canvas_manager.get_canvas_stats(user_client=user_client, correlation_id=correlation_id)
 
         # Convert Firestore timestamps to ISO strings
         if stats.get('last_update') and hasattr(stats['last_update'], 'isoformat'):

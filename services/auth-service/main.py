@@ -5,6 +5,7 @@ import os
 import requests
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from google.cloud import firestore
 from functions_framework import http
 from flask import jsonify, Request, make_response, Response
@@ -83,7 +84,7 @@ class SessionManager:
         """Create a new session for authenticated user."""
         db = get_db()
         session_id = secrets.token_urlsafe(32)
-        user_id = user_data['id']
+        user_id = str(user_data['id'])  # Ensure user_id is always a string
         username = f"{user_data['username']}#{user_data.get('discriminator', '0')}"
 
         logger.info(
@@ -96,7 +97,7 @@ class SessionManager:
 
         session_data = {
             'session_id': session_id,
-            'user_id': user_id,
+            'user_id': str(user_id),  # Ensure user_id is a string for consistent querying
             'username': username,
             'avatar': user_data.get('avatar'),
             'discord_access_token': discord_token['access_token'],
@@ -104,14 +105,14 @@ class SessionManager:
             'discord_token_expires': datetime.now(timezone.utc) + timedelta(seconds=discord_token['expires_in']),
             'created_at': firestore.SERVER_TIMESTAMP,
             'last_activity': firestore.SERVER_TIMESTAMP,
-            'expires_at': datetime.now(timezone.utc) + timedelta(days=30)
+            'expires_at': datetime.now(timezone.utc) + timedelta(days=30)  # 30 days expiration
         }
 
         db.collection('sessions').document(session_id).set(session_data)
 
         # --- Update user record ---
-        db.collection('users').document(user_id).set({
-            'user_id': user_id,
+        db.collection('users').document(str(user_id)).set({
+            'user_id': str(user_id),
             'username': username,
             'avatar': user_data.get('avatar'),
             'last_login': firestore.SERVER_TIMESTAMP
@@ -136,20 +137,38 @@ class SessionManager:
             session_data = doc.to_dict()
 
             # --- Check if expired ---
-            if session_data.get('expires_at') and session_data['expires_at'] < datetime.now(timezone.utc):
-                logger.info(
-                    "Session expired",
-                    correlation_id=correlation_id,
-                    session_id=session_id[:10] + "...",
-                    user_id=session_data.get('user_id')
-                )
-                SessionManager.delete_session(session_id, correlation_id)
-                return None
+            expires_at = session_data.get('expires_at')
+            if expires_at:
+                # Handle both Firestore Timestamp and datetime objects
+                if hasattr(expires_at, 'timestamp'):
+                    expires_at_dt = expires_at
+                else:
+                    expires_at_dt = expires_at
+
+                if expires_at_dt < datetime.now(timezone.utc):
+                    logger.info(
+                        "Session expired",
+                        correlation_id=correlation_id,
+                        session_id=session_id[:10] + "...",
+                        user_id=session_data.get('user_id'),
+                        expires_at=str(expires_at_dt),
+                        now=str(datetime.now(timezone.utc))
+                    )
+                    SessionManager.delete_session(session_id, correlation_id)
+                    return None
 
             # --- Update last activity ---
-            db.collection('sessions').document(session_id).update({
-                'last_activity': firestore.SERVER_TIMESTAMP
-            })
+            try:
+                db.collection('sessions').document(session_id).update({
+                    'last_activity': firestore.SERVER_TIMESTAMP
+                })
+            except Exception as e:
+                logger.warning(
+                    "Failed to update last_activity",
+                    error=e,
+                    correlation_id=correlation_id,
+                    session_id=session_id[:10] + "..."
+                )
 
             logger.debug(
                 "Session retrieved",
@@ -166,6 +185,98 @@ class SessionManager:
             session_id=session_id[:10] + "..." if session_id else None
         )
         return None
+
+    @staticmethod
+    def find_active_session_for_user(user_id: str, correlation_id: str = None) -> Optional[str]:
+        """Find an active session for a user, if one exists."""
+        db = get_db()
+        now = datetime.now(timezone.utc)
+
+        # Query for active sessions for this user
+        try:
+            sessions_query = db.collection('sessions').where('user_id', '==', str(user_id)).stream()
+
+            for session_doc in sessions_query:
+                session_data = session_doc.to_dict()
+                expires_at = session_data.get('expires_at')
+
+                # Check if session is still valid
+                if expires_at:
+                    # Handle both Firestore Timestamp and datetime objects
+                    if hasattr(expires_at, 'timestamp'):
+                        expires_at_dt = expires_at
+                    else:
+                        expires_at_dt = expires_at
+
+                    if expires_at_dt > now:
+                        session_id = session_data.get('session_id') or session_doc.id
+                        logger.info(
+                            "Found active session for user",
+                            correlation_id=correlation_id,
+                            user_id=user_id,
+                            session_id=session_id[:10] + "..." if session_id else None,
+                            expires_at=str(expires_at_dt)
+                        )
+                        return session_id
+                    else:
+                        logger.debug(
+                            "Session found but expired",
+                            correlation_id=correlation_id,
+                            user_id=user_id,
+                            session_id=session_doc.id[:10] + "...",
+                            expires_at=str(expires_at_dt),
+                            now=str(now)
+                        )
+                else:
+                    # No expiration date, consider it valid
+                    session_id = session_data.get('session_id') or session_doc.id
+                    logger.info(
+                        "Found active session for user (no expiration)",
+                        correlation_id=correlation_id,
+                        user_id=user_id,
+                        session_id=session_id[:10] + "..." if session_id else None
+                    )
+                    return session_id
+
+            logger.debug(
+                "No active session found for user",
+                correlation_id=correlation_id,
+                user_id=user_id
+            )
+        except Exception as e:
+            logger.error(
+                "Error finding active session for user",
+                error=e,
+                correlation_id=correlation_id,
+                user_id=user_id
+            )
+        return None
+
+    @staticmethod
+    def update_session_tokens(session_id: str, discord_token: dict, correlation_id: str = None) -> bool:
+        """Update Discord tokens for an existing session."""
+        db = get_db()
+        try:
+            db.collection('sessions').document(session_id).update({
+                'discord_access_token': discord_token['access_token'],
+                'discord_refresh_token': discord_token.get('refresh_token'),
+                'discord_token_expires': datetime.now(timezone.utc) + timedelta(seconds=discord_token['expires_in']),
+                'last_activity': firestore.SERVER_TIMESTAMP
+            })
+            logger.info(
+                "Session tokens updated",
+                correlation_id=correlation_id,
+                session_id=session_id[:10] + "..."
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to update session tokens",
+                error=e,
+                correlation_id=correlation_id,
+                session_id=session_id[:10] + "..."
+            )
+            return False
 
     @staticmethod
     def delete_session(session_id: str, correlation_id: str = None):
@@ -492,8 +603,32 @@ def handle_callback(request: Request):
             )
             return jsonify({'error': 'Failed to get user information'}), 400
 
-        # --- Create session ---
-        session_id = SessionManager.create_session(user_data, token_data, correlation_id)
+        user_id = str(user_data['id'])
+
+        # --- Check if user already has an active session ---
+        existing_session_id = SessionManager.find_active_session_for_user(user_id, correlation_id)
+
+        if existing_session_id:
+            # Update existing session with new Discord tokens
+            logger.info(
+                "Reusing existing session for user",
+                correlation_id=correlation_id,
+                user_id=user_id,
+                session_id=existing_session_id[:10] + "..."
+            )
+            if SessionManager.update_session_tokens(existing_session_id, token_data, correlation_id):
+                session_id = existing_session_id
+            else:
+                # If update failed, create new session
+                logger.warning(
+                    "Failed to update existing session, creating new one",
+                    correlation_id=correlation_id,
+                    user_id=user_id
+                )
+                session_id = SessionManager.create_session(user_data, token_data, correlation_id)
+        else:
+            # --- Create new session ---
+            session_id = SessionManager.create_session(user_data, token_data, correlation_id)
 
         # --- Redirect to web frontend with session ---
         frontend_url = WEB_FRONTEND_URL or 'https://web-frontend.example.com'

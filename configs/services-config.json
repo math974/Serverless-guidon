@@ -8,7 +8,7 @@
       "timeout": "300s",
       "authentication": "public",
       "secrets": ["DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN", "DISCORD_APPLICATION_ID"],
-      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL"]
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "AUTH_SERVICE_URL"]
     },
     "user-manager": {
       "name": "user-manager",
@@ -28,7 +28,7 @@
       "timeout": "540s",
       "authentication": "private",
       "secrets": [],
-      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "FIRESTORE_DATABASE", "GCS_CANVAS_BUCKET"]
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "FIRESTORE_DATABASE", "GCS_CANVAS_BUCKET", "USER_MANAGER_URL"]
     },
     "auth-service": {
       "name": "discord-auth-service",
@@ -48,7 +48,7 @@
       "timeout": "120s",
       "authentication": "public",
       "secrets": [],
-      "env_vars": []
+      "env_vars": ["WEB_FRONTEND_URL", "GATEWAY_URL", "AUTH_SERVICE_URL"]
     },
     "discord-registrar": {
       "name": "discord-utils",
@@ -102,7 +102,7 @@
       "trigger": "pubsub",
       "topic": "commands-canvas-state",
       "secrets": ["DISCORD_BOT_TOKEN"],
-      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "USER_MANAGER_URL", "CANVAS_SERVICE_URL"]
+      "env_vars": ["GCP_PROJECT_ID", "ENVIRONMENT", "CANVAS_SERVICE_URL"]
     },
     "processor-stats": {
       "name": "processor-stats",

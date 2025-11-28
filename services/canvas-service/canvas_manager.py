@@ -36,7 +36,9 @@ def load_settings() -> Dict:
     default_settings = {
         'canvas_size': 48,
         'pixel_scale': 10,
-        'default_color': '#FFFFFF'
+        'default_color': '#FFFFFF',
+        'user_manager_url': '',
+        'user_manager_timeout': 5
     }
 
     settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'setting.json')
@@ -47,6 +49,12 @@ def load_settings() -> Dict:
                 settings = json.load(f)
                 default_settings.update(settings)
                 logger.info("Settings loaded from setting.json", settings=default_settings)
+
+                if settings.get('user_manager_url') and not os.environ.get('USER_MANAGER_URL'):
+                    os.environ['USER_MANAGER_URL'] = settings['user_manager_url']
+                if settings.get('user_manager_timeout') and not os.environ.get('USER_MANAGER_TIMEOUT'):
+                    os.environ['USER_MANAGER_TIMEOUT'] = str(settings['user_manager_timeout'])
+
                 return default_settings
         else:
             logger.warning("setting.json not found, using defaults", defaults=default_settings)
@@ -70,6 +78,8 @@ class CanvasManager:
     PIXEL_SCALE = _settings.get('pixel_scale', 10)
 
     BUCKET_NAME = os.environ.get('GCS_CANVAS_BUCKET', 'discord-canvas-snapshots')
+    USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', _settings.get('user_manager_url', ''))
+    USER_MANAGER_TIMEOUT = float(os.environ.get('USER_MANAGER_TIMEOUT', _settings.get('user_manager_timeout', 5)))
 
     def __init__(self):
         self.db = get_db()
@@ -232,8 +242,13 @@ class CanvasManager:
 
         return canvas
 
-    def get_canvas_stats(self) -> Dict:
-        """Get canvas statistics."""
+    def get_canvas_stats(self, user_client=None, correlation_id: str = None) -> Dict:
+        """Get canvas statistics.
+
+        Args:
+            user_client: Optional UserManagementClient to fetch contributor details
+            correlation_id: Optional correlation ID for logging
+        """
         doc = self.canvas_ref.get()
         if doc.exists:
             data = doc.to_dict()
@@ -242,13 +257,46 @@ class CanvasManager:
             if isinstance(unique_contributors, set):
                 unique_contributors = list(unique_contributors)
 
-            return {
+            contributors_list = []
+            if user_client and unique_contributors:
+                for user_id in unique_contributors[:50]:
+                    try:
+                        user_data = user_client._make_request(
+                            'GET',
+                            f'/api/users/{user_id}',
+                            correlation_id=correlation_id
+                        )
+                        if user_data:
+                            contributors_list.append({
+                                'id': user_id,
+                                'username': user_data.get('username', f'User {user_id}'),
+                                'avatar': user_data.get('avatar')
+                            })
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to fetch contributor details",
+                            error=e,
+                            user_id=user_id,
+                            correlation_id=correlation_id
+                        )
+                        contributors_list.append({
+                            'id': user_id,
+                            'username': f'User {user_id}',
+                            'avatar': None
+                        })
+
+            result = {
                 'total_pixels': data.get('total_pixels', 0),
                 'unique_contributors': len(unique_contributors),
                 'last_update': data.get('last_update'),
                 'last_update_by': data.get('last_update_by'),
                 'last_update_username': data.get('last_update_username')
             }
+
+            if contributors_list:
+                result['contributors'] = contributors_list
+
+            return result
         return {
             'total_pixels': 0,
             'unique_contributors': 0

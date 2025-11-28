@@ -73,6 +73,14 @@ def handle_draw(interaction: dict = None):
     if not user_id:
         return create_error_embed("Unknown user", "Unable to resolve your Discord identity.")
 
+    canvas_state = canvas_client.get_canvas_state(correlation_id=correlation_id)
+    if canvas_state.get('error'):
+        return create_error_embed("Service unavailable", "Unable to retrieve canvas information.")
+
+    canvas_size = canvas_state.get('size', CANVAS_SIZE)
+    if not isinstance(canvas_size, int) or canvas_size <= 0:
+        canvas_size = CANVAS_SIZE
+
     options = extract_options(interaction)
     x = options.get('x')
     y = options.get('y')
@@ -84,10 +92,10 @@ def handle_draw(interaction: dict = None):
             "Specify both `x` and `y` coordinates. Example: `/draw x:10 y:12 color:#FF0000`."
         )
 
-    if not (0 <= x < CANVAS_SIZE and 0 <= y < CANVAS_SIZE):
+    if not (0 <= x < canvas_size and 0 <= y < canvas_size):
         return create_error_embed(
             "Invalid coordinates",
-            f"Coordinates must be between 0 and {CANVAS_SIZE - 1}."
+            f"Coordinates must be between 0 and {canvas_size - 1} (canvas size: {canvas_size}×{canvas_size})."
         )
 
     ok, color_hex, color_error = _parse_color(color_input)
@@ -148,7 +156,7 @@ def handle_draw(interaction: dict = None):
     if stats.get('is_premium'):
         fields.append({'name': 'Status', 'value': 'Premium', 'inline': True})
 
-    description = "Pixel successfully placed on the shared 48×48 canvas!"
+    description = f"Pixel successfully placed on the shared {canvas_size}×{canvas_size} canvas!"
     if not canvas_result.get('changed'):
         description = "Pixel already had this color. No changes made."
 
@@ -157,7 +165,7 @@ def handle_draw(interaction: dict = None):
         description=description,
         color=int(color_hex.replace('#', ''), 16),
         fields=fields,
-        footer={'text': f'Artist: {username} • Canvas: 48×48'},
+        footer={'text': f'Artist: {username} • Canvas: {canvas_size}×{canvas_size}'},
         thumbnail=create_user_thumbnail(avatar_url) if avatar_url else None,
         author=create_user_author(username, avatar_url) if avatar_url else None
     )

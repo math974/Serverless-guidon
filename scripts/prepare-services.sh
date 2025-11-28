@@ -15,7 +15,6 @@ SERVICES=(
     "services/discord-registrar"
     "services/auth-service"
     "services/user-manager"
-    "services/web-frontend"
     "services/canvas-service"
     "services/processor-draw"
     "services/processor-snapshot"
@@ -23,6 +22,7 @@ SERVICES=(
     "services/processor-stats"
     "services/processor-colors"
     "services/processor-pixel-info"
+    "services/web-frontend"
 )
 
 for service_dir in "${SERVICES[@]}"; do

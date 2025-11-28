@@ -138,8 +138,14 @@ test-health: ## Test health endpoints for all services
 	@CANVAS_URL=$$(gcloud functions describe canvas-service --gen2 --region=$(REGION) --project=$(PROJECT_ID) --format="value(serviceConfig.uri)" 2>/dev/null) && \
 		echo "  $$CANVAS_URL/health" && curl -s $$CANVAS_URL/health | python3 -m json.tool || echo "  Not available"
 	@echo "Web Frontend:"
-	@WEB_URL=$$(gcloud functions describe web-frontend --gen2 --region=$(REGION) --project=$(PROJECT_ID) --format="value(serviceConfig.uri)" 2>/dev/null) && \
-		echo "  $$WEB_URL/health" && curl -s $$WEB_URL/health | python3 -m json.tool || echo "  Not available"
+	@WEB_HOST=$$(gcloud app describe --project=$(PROJECT_ID) --format="value(defaultHostname)" 2>/dev/null) && \
+		if [ -n "$$WEB_HOST" ]; then \
+			WEB_URL="https://$$WEB_HOST"; \
+			echo "  $$WEB_URL"; \
+			curl -s --head $$WEB_URL >/dev/null && echo "  ✓ reachable" || echo "  Not available"; \
+		else \
+			echo "  Not deployed"; \
+		fi
 
 test-web: ## Test web endpoints
 	@GATEWAY_URL=$$(gcloud api-gateway gateways describe $(GATEWAY_ID) --location=$(REGION) --project=$(PROJECT_ID) --format="value(defaultHostname)" 2>/dev/null) && \
@@ -175,8 +181,8 @@ logs-canvas-service: ## Show canvas-service logs
 		--project=$(PROJECT_ID) --limit=50 --format="table(timestamp,severity,jsonPayload.message)" --order=desc
 
 logs-web-frontend: ## Show web-frontend logs
-	@gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=web-frontend" \
-		--project=$(PROJECT_ID) --limit=50 --format="table(timestamp,severity,jsonPayload.message)" --order=desc
+	@gcloud logging read 'resource.type="gae_app" AND resource.labels.module_id="default"' \
+		--project=$(PROJECT_ID) --limit=50 --format="table(timestamp,severity,textPayload)" --order=desc
 
 logs-processor-draw: ## Show processor-draw logs
 	@gcloud logging read "resource.type=cloud_function AND resource.labels.function_name=processor-draw" \
@@ -242,7 +248,12 @@ urls: ## Display URLs for all services
 	@echo "Canvas Service:"
 	@gcloud functions describe canvas-service --gen2 --region=$(REGION) --project=$(PROJECT_ID) --format="value(serviceConfig.uri)" 2>/dev/null || echo "  Not deployed"
 	@echo "Web Frontend:"
-	@gcloud functions describe web-frontend --gen2 --region=$(REGION) --project=$(PROJECT_ID) --format="value(serviceConfig.uri)" 2>/dev/null || echo "  Not deployed"
+	@WEB_HOST=$$(gcloud app describe --project=$(PROJECT_ID) --format="value(defaultHostname)" 2>/dev/null) && \
+		if [ -n "$$WEB_HOST" ]; then \
+			echo "  https://$$WEB_HOST"; \
+		else \
+			echo "  Not deployed"; \
+		fi
 	@echo "Processor-Base:"
 	@gcloud functions describe processor-base --gen2 --region=$(REGION) --project=$(PROJECT_ID) --format="value(serviceConfig.uri)" 2>/dev/null || echo "  Not deployed"
 	@echo "Processor-Draw:"

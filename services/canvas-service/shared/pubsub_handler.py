@@ -66,15 +66,43 @@ def handle_processor_response(
     interaction_type = interaction_data.get('interaction_type', 'discord')
     correlation_id = interaction_data.get('correlation_id')
 
+    if logger:
+        logger.info(
+            "handle_processor_response called",
+            correlation_id=correlation_id,
+            interaction_type=interaction_type,
+            has_response=bool(response),
+            has_webhook_url=bool(interaction_data.get('webhook_url'))
+        )
+
     # For web interactions, use webhook_url directly
     if interaction_type == 'web':
         webhook_url = interaction_data.get('webhook_url')
-        if webhook_url:
-            return send_web_webhook(webhook_url, response, correlation_id, logger)
-        else:
+        if not webhook_url:
             if logger:
                 logger.warning("Web interaction but no webhook_url provided", correlation_id=correlation_id)
             return False
+
+        if logger:
+            logger.info(
+                "Sending web webhook response",
+                correlation_id=correlation_id,
+                webhook_url=webhook_url
+            )
+
+        token = (
+            response.get('token')
+            or interaction.get('token')
+            or interaction_data.get('token')
+        )
+        if not token and logger:
+            logger.warning("Web interaction missing token in payload", correlation_id=correlation_id)
+
+        response_payload = dict(response)
+        if token:
+            response_payload['token'] = token
+
+        return send_web_webhook(webhook_url, response_payload, correlation_id, logger)
 
     # For Discord interactions, send directly to Discord webhook
     interaction_token = interaction.get('token')

@@ -85,7 +85,12 @@ PROXY_URL=$(gcloud functions describe proxy --gen2 --region="${REGION}" --projec
 
 echo "[6/15] Deploying web-frontend..."
 "${SCRIPT_DIR}/deploy-web-frontend.sh"
-WEB_FRONTEND_URL=$(gcloud functions describe web-frontend --gen2 --region="${REGION}" --project="${PROJECT_ID}" --format="value(serviceConfig.uri)")
+WEB_FRONTEND_HOST=$(gcloud app describe --project="${PROJECT_ID}" --format="value(defaultHostname)" 2>/dev/null || echo "")
+if [ ! -z "${WEB_FRONTEND_HOST}" ]; then
+    WEB_FRONTEND_URL="https://${WEB_FRONTEND_HOST}"
+else
+    WEB_FRONTEND_URL=""
+fi
 
 echo "[7/15] Deploying auth-service..."
 if [ ${#OAUTH2_SECRETS[@]} -eq 0 ]; then
@@ -130,7 +135,11 @@ echo "Services:"
 echo "  user-manager: ${USER_MANAGER_URL}"
 echo "  canvas-service: ${CANVAS_SERVICE_URL}"
 echo "  proxy: ${PROXY_URL}"
-echo "  web-frontend: ${WEB_FRONTEND_URL}"
+if [ ! -z "${WEB_FRONTEND_URL}" ]; then
+    echo "  web-frontend: ${WEB_FRONTEND_URL}"
+else
+    echo "  web-frontend: (App Engine URL indisponible)"
+fi
 if [ ! -z "$AUTH_URL" ]; then
     echo "  auth-service: ${AUTH_URL}"
 fi
@@ -151,5 +160,8 @@ echo "  1. Update gateway: make update-gateway"
 echo "  2. Register commands: curl -X POST ${REGISTRAR_URL}/register"
 if [ ! -z "$GATEWAY_URL" ]; then
     echo "  3. Discord webhook: ${GATEWAY_URL}/discord/interactions"
-    echo "  4. Web frontend: ${GATEWAY_URL}"
+    echo "  4. Web frontend (Gateway alias): ${GATEWAY_URL}"
+fi
+if [ ! -z "${WEB_FRONTEND_URL}" ]; then
+    echo "  5. Web frontend (App Engine direct): ${WEB_FRONTEND_URL}"
 fi
