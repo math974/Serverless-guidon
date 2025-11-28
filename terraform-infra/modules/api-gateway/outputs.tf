@@ -18,6 +18,11 @@ output "gateway_default_hostname" {
   value       = google_api_gateway_gateway.gateway.default_hostname
 }
 
+output "gateway_url" {
+  description = "URL complète de l'API Gateway"
+  value       = "https://${google_api_gateway_gateway.gateway.default_hostname}"
+}
+
 
 
 

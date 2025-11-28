@@ -1,14 +1,14 @@
-project_id            = "serverless-guidon"
+project_id            = "serverless-staging-478911"
 region                = "europe-west1"
-api_id                = "guidon-api"
-gateway_id            = "guidon-gw-prod"
+api_id                = "picasso-api"
+gateway_id            = "picasso-gw-stage"
 api_config_id_prefix  = "v"
-openapi_spec_path     = "specs/openapi.yaml"
+openapi_spec_path     = "specs/openapi-template.yaml"
 firestore_database_id = "guidon-db"
 
 labels = {
-  environment = "prod"
-  app         = "guidon"
+  environment = "stage"
+  app         = "picasso"
 }
 
 functions = {
@@ -16,7 +16,7 @@ functions = {
     entry_point         = "proxy_handler"
     source_dir          = "../services/proxy"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"]
+    authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -39,7 +39,7 @@ functions = {
     entry_point         = "auth_handler"
     source_dir          = "../services/auth-service"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"]
+    authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -57,7 +57,7 @@ functions = {
     entry_point         = "user_management_handler"
     source_dir          = "../services/user-manager"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"]
+    authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -75,7 +75,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = []
+    authorized_invokers = [] # Pas invoqué via API Gateway ou Pub/Sub
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -93,7 +93,7 @@ functions = {
     entry_point         = "processor_base_handler"
     source_dir          = "../services/processor-base"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -106,7 +106,7 @@ functions = {
     entry_point         = "processor_stats_handler"
     source_dir          = "../services/processor-stats"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -124,7 +124,7 @@ functions = {
     entry_point         = "processor_colors_handler"
     source_dir          = "../services/processor-colors"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -142,7 +142,7 @@ functions = {
     entry_point         = "processor_draw_handler"
     source_dir          = "../services/processor-draw"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -160,7 +160,7 @@ functions = {
     entry_point         = "processor_pixel_info_handler"
     source_dir          = "../services/processor-pixel-info"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -178,7 +178,7 @@ functions = {
     entry_point         = "processor_snapshot_handler"
     source_dir          = "../services/processor-snapshot"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -201,7 +201,7 @@ functions = {
     entry_point         = "processor_canvas_state_handler"
     source_dir          = "../services/processor-canvas-state"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
@@ -245,7 +245,7 @@ service_accounts = {
 
 gcs_buckets = {
   "canvas-snapshots" = {
-    bucket_name        = "discord-canvas-snapshots-prod"
+    bucket_name        = "discord-canvas-snapshots-stage"
     location           = "europe-west1"
     storage_class      = "STANDARD"
     public_read_access = true # Les snapshots doivent être accessibles publiquement
@@ -261,10 +261,9 @@ gcs_buckets = {
     lifecycle_rules = [
       {
         action_type    = "Delete"
-        age            = 180 # Prod: conserver 6 mois
+        age            = 90
         matches_prefix = ["snapshots/"]
       }
     ]
   }
 }
-

@@ -1,5 +1,6 @@
 """
 OAuth2 Discord Authentication Service using Functions Framework for Cloud Functions Gen2
+Junot est un boug suspect il sort dehors dans le froid sans manteau.
 """
 import os
 import requests

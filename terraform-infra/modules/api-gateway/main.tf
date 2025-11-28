@@ -12,7 +12,10 @@ terraform {
   }
 }
 
-// Lecture du fichier OpenAPI directement via filebase64()
+// Lecture du fichier OpenAPI (templatefile si fourni, sinon file)
+locals {
+  openapi_raw = var.openapi_template_path != null ? templatefile(var.openapi_template_path, var.openapi_variables) : file(var.openapi_spec_path)
+}
 
 resource "google_project_service" "apigateway" {
   project = var.project_id
@@ -37,9 +40,17 @@ resource "google_api_gateway_api_config" "config" {
   openapi_documents {
     document {
       path     = var.openapi_document_path
-      contents = filebase64(var.openapi_spec_path)
+      contents = base64encode(local.openapi_raw)
     }
   }
+
+  # Labels pour forcer le redéploiement quand le contenu OpenAPI change
+  labels = var.openapi_content_hash != null ? merge(
+    var.labels,
+    {
+      "openapi-hash" = substr(var.openapi_content_hash, 0, 63)
+    }
+  ) : var.labels
 
   lifecycle {
     create_before_destroy = true

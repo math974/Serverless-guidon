@@ -29,6 +29,18 @@ variable "openapi_spec_path" {
   type        = string
 }
 
+variable "openapi_template_path" {
+  description = "Chemin local vers un template OpenAPI (utilisé si fourni)"
+  type        = string
+  default     = null
+}
+
+variable "openapi_variables" {
+  description = "Variables à injecter dans le template OpenAPI"
+  type        = map(any)
+  default     = {}
+}
+
 variable "openapi_document_path" {
   description = "Chemin logique du document dans la config (nom du fichier)"
   type        = string
@@ -39,6 +51,17 @@ variable "labels" {
   description = "Labels à appliquer aux ressources"
   type        = map(string)
   default     = {}
+}
+
+variable "service_account_email" {
+  description = "Email du service account à utiliser pour l'API Gateway (pour invoquer les backends)"
+  type        = string
+}
+
+variable "openapi_content_hash" {
+  description = "Hash du contenu du fichier OpenAPI pour forcer le redéploiement lors de modifications"
+  type        = string
+  default     = null
 }
 
 
