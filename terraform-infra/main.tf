@@ -351,3 +351,61 @@ resource "google_secret_manager_secret_iam_member" "gcs_bucket_access" {
 
   depends_on = [module.service_accounts]
 }
+
+# Secret pour l'URL de login OAuth (construite automatiquement)
+resource "google_secret_manager_secret" "oauth_login_url" {
+  project   = var.project_id
+  secret_id = "OAUTH_LOGIN_URL"
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+resource "google_secret_manager_secret_version" "oauth_login_url_version" {
+  secret      = google_secret_manager_secret.oauth_login_url.id
+  secret_data = "${module.api_gateway.gateway_url}/auth/login"
+
+  depends_on = [module.api_gateway]
+}
+
+# Accès au secret OAUTH_LOGIN_URL pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "oauth_login_url_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.oauth_login_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
+}
+
+# Secret pour l'URI de redirection Discord OAuth (construite automatiquement)
+resource "google_secret_manager_secret" "discord_redirect_uri" {
+  project   = var.project_id
+  secret_id = "DISCORD_REDIRECT_URI"
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+resource "google_secret_manager_secret_version" "discord_redirect_uri_version" {
+  secret      = google_secret_manager_secret.discord_redirect_uri.id
+  secret_data = "${module.api_gateway.gateway_url}/auth/callback"
+
+  depends_on = [module.api_gateway]
+}
+
+# Accès au secret DISCORD_REDIRECT_URI pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "discord_redirect_uri_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.discord_redirect_uri.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
+}

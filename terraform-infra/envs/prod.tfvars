@@ -27,6 +27,11 @@ functions = {
         key     = "AUTH_SERVICE_URL"
         secret  = "AUTH_SERVICE_URL"
         version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
       }
     ]
   }
@@ -39,6 +44,11 @@ functions = {
       {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
         version = "latest"
       }
     ]
