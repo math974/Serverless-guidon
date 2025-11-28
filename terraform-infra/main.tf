@@ -150,7 +150,7 @@ module "functions" {
 
   depends_on = [
     module.service_accounts,
-    google_secret_manager_secret_version.gcs_canvas_bucket_secret_version,
+    google_secret_manager_secret_version.gcs_canvas_bucket_version,
     google_secret_manager_secret_version.oauth_login_url_initial,
     google_secret_manager_secret_version.discord_redirect_uri_initial
   ]
