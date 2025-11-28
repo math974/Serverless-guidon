@@ -1,0 +1,161 @@
+name: 🔥 Destroy Infrastructure (DANGER)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm destruction'
+        required: true
+        type: string
+      target_module:
+        description: 'Specific module to destroy (optional, leave empty to destroy everything)'
+        required: false
+        type: string
+
+env:
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+
+jobs:
+  validate-destroy:
+    name: 🛡️ Validate Destruction
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
+            echo "❌ Invalid confirmation. You must type exactly 'DESTROY' to continue."
+            exit 1
+          fi
+          echo "✅ Confirmation validated"
+
+      - name: Display warning
+        run: |
+          echo "⚠️  WARNING ⚠️"
+          echo "================================"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          if [ -n "${{ github.event.inputs.target_module }}" ]; then
+            echo "Target module: ${{ github.event.inputs.target_module }}"
+          else
+            echo "Scope: ENTIRE INFRASTRUCTURE"
+          fi
+          echo "User: ${{ github.actor }}"
+          echo "================================"
+
+  destroy-infrastructure:
+    name: 🔥 Destroy Infrastructure
+    needs: validate-destroy
+    runs-on: ubuntu-latest
+    environment: 
+      name: ${{ github.event.inputs.environment }}
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+          terraform_wrapper: true
+
+      - name: Cache Terraform plugins
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            ./.terraform
+          key: ${{ runner.os }}-terraform-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
+
+      - name: Set env-specific paths
+        id: paths
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          echo "ENV=${ENV}" >> $GITHUB_OUTPUT
+          echo "BACKEND_CONFIG=configs/infra-${ENV}.config" >> $GITHUB_OUTPUT
+          echo "TFVARS=envs/${ENV}.tfvars" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init (backend ${{ steps.paths.outputs.ENV }})
+        working-directory: terraform-infra
+        run: |
+          terraform init \
+            -backend-config=../${{ steps.paths.outputs.BACKEND_CONFIG }}
+
+      - name: Terraform Plan Destroy (env ${{ steps.paths.outputs.ENV }})
+        id: plan
+        working-directory: terraform-infra
+        run: |
+          if [ -n "${{ github.event.inputs.target_module }}" ]; then
+            echo "📍 Destruction plan for module: ${{ github.event.inputs.target_module }}"
+            terraform plan -destroy \
+              -var-file=${{ steps.paths.outputs.TFVARS }} \
+              -target="${{ github.event.inputs.target_module }}" \
+              -input=false \
+              -out=destroy.tfplan
+          else
+            echo "📍 Destruction plan for ENTIRE infrastructure"
+            terraform plan -destroy \
+              -var-file=${{ steps.paths.outputs.TFVARS }} \
+              -input=false \
+              -out=destroy.tfplan
+          fi
+
+      - name: Display plan
+        working-directory: terraform-infra
+        run: terraform show destroy.tfplan
+
+      - name: Wait for final confirmation
+        run: |
+          echo "⏳ Waiting 10 seconds before destruction..."
+          echo "   (You can cancel the workflow now if needed)"
+          sleep 10
+
+      - name: Terraform Destroy
+        working-directory: terraform-infra
+        run: |
+          echo "🔥 Destroying infrastructure..."
+          terraform apply destroy.tfplan
+          echo "✅ Destruction completed"
+
+      - name: Destruction summary
+        if: success()
+        run: |
+          echo "### ✅ Destruction successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.event.inputs.target_module }}" ]; then
+            echo "- **Module**: ${{ github.event.inputs.target_module }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Scope**: Entire infrastructure" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **By**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "### ❌ Destruction failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The destruction has failed. Check the logs above." >> $GITHUB_STEP_SUMMARY
+          echo "You may need to intervene manually." >> $GITHUB_STEP_SUMMARY
+
