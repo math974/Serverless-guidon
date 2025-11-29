@@ -32,6 +32,16 @@ functions = {
         key     = "OAUTH_LOGIN_URL"
         secret  = "OAUTH_LOGIN_URL"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
       }
     ]
   }
@@ -55,6 +65,16 @@ functions = {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
       }
     ]
   }
@@ -75,6 +95,18 @@ functions = {
     entry_point = "registrar_handler"
     source_dir  = "../services/discord-registrar"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      }
+    ]
   }
   "canvas-service" = {
     entry_point         = "canvas_service"
@@ -122,6 +154,11 @@ functions = {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -139,6 +176,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
@@ -158,6 +200,11 @@ functions = {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -175,6 +222,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
@@ -199,6 +251,11 @@ functions = {
         key     = "GCS_CANVAS_BUCKET"
         secret  = "GCS_CANVAS_BUCKET"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -216,6 +273,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
