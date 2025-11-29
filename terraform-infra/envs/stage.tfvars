@@ -117,11 +117,6 @@ functions = {
         version = "latest"
       },
       {
-        key     = "GCP_PROJECT_ID"
-        secret  = "GCP_PROJECT_ID"
-        version = "latest"
-      },
-      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
         version = "latest"

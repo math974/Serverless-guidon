@@ -115,6 +115,13 @@ functions = {
     entry_point = "registrar_handler"
     source_dir  = "../services/discord-registrar"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      }
+    ]
   }
   "canvas-service" = {
     entry_point         = "canvas_service"
