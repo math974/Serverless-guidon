@@ -92,7 +92,7 @@ resource "google_cloud_run_service_iam_member" "function_invokers" {
   location = var.region
   service  = module.functions[each.value.function_name].function_name
   role     = "roles/run.invoker"
-  member   = module.service_accounts[each.value.sa_name].member
+  member   = each.value.sa_name == "allUsers" ? "allUsers" : module.service_accounts[each.value.sa_name].member
 
   depends_on = [module.functions, module.service_accounts]
 }
