@@ -54,7 +54,7 @@ functions = {
     entry_point         = "auth_handler"
     source_dir          = "../services/auth-service"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"]
+    authorized_invokers = ["allUsers"]
     secret_env = [
       {
         key     = "DISCORD_CLIENT_ID"
@@ -105,7 +105,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = []
+    authorized_invokers = ["allUsers"]
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"

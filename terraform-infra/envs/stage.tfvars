@@ -49,7 +49,7 @@ functions = {
     entry_point         = "auth_handler"
     source_dir          = "../services/auth-service"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
+    authorized_invokers = ["allUsers"] # Invoqué par l'API Gateway
     secret_env = [
       {
         key     = "DISCORD_REDIRECT_URI"
@@ -112,7 +112,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = [] # Pas invoqué via API Gateway ou Pub/Sub
+    authorized_invokers = ["allUsers"] # Pas invoqué via API Gateway ou Pub/Sub
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
