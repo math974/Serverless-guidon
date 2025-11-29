@@ -24,18 +24,33 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
-        version = "latest"
-      },
-      {
         key     = "AUTH_SERVICE_URL"
         secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
-        key     = "OAUTH_LOGIN_URL"
-        secret  = "OAUTH_LOGIN_URL"
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
         version = "latest"
       },
       {
@@ -44,8 +59,38 @@ functions = {
         version = "latest"
       },
       {
-        key     = "DISCORD_APPLICATION_ID"
-        secret  = "DISCORD_APPLICATION_ID"
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -62,18 +107,23 @@ functions = {
         version = "latest"
       },
       {
-        key     = "DISCORD_REDIRECT_URI"
-        secret  = "DISCORD_REDIRECT_URI"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
-        key     = "WEB_FRONTEND_URL"
-        secret  = "WEB_FRONTEND_URL"
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
         version = "latest"
       },
       {
-        key     = "FIRESTORE_DATABASE"
-        secret  = "FIRESTORE_DATABASE"
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       },
       {
@@ -84,6 +134,46 @@ functions = {
       {
         key     = "DISCORD_CLIENT_SECRET"
         secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -100,8 +190,73 @@ functions = {
         version = "latest"
       },
       {
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -117,13 +272,73 @@ functions = {
         version = "latest"
       },
       {
-        key     = "DISCORD_BOT_TOKEN"
-        secret  = "DISCORD_BOT_TOKEN"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
         version = "latest"
       },
       {
         key     = "DISCORD_APPLICATION_ID"
         secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -140,6 +355,46 @@ functions = {
         version = "latest"
       },
       {
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
@@ -147,6 +402,26 @@ functions = {
       {
         key     = "GCS_CANVAS_BUCKET"
         secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -163,8 +438,73 @@ functions = {
         version = "latest"
       },
       {
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "CANVAS_SERVICE_URL"
+        secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -181,8 +521,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -191,8 +531,63 @@ functions = {
         version = "latest"
       },
       {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -209,8 +604,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -219,8 +614,63 @@ functions = {
         version = "latest"
       },
       {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -237,8 +687,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -247,8 +697,63 @@ functions = {
         version = "latest"
       },
       {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -265,8 +770,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -275,8 +780,63 @@ functions = {
         version = "latest"
       },
       {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -293,8 +853,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -303,13 +863,63 @@ functions = {
         version = "latest"
       },
       {
-        key     = "GCS_CANVAS_BUCKET"
-        secret  = "GCS_CANVAS_BUCKET"
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
         version = "latest"
       },
       {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]
@@ -326,8 +936,8 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
+        key     = "AUTH_SERVICE_URL"
+        secret  = "AUTH_SERVICE_URL"
         version = "latest"
       },
       {
@@ -336,8 +946,63 @@ functions = {
         version = "latest"
       },
       {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
+        version = "latest"
+      },
+      {
+        key     = "GCS_CANVAS_BUCKET"
+        secret  = "GCS_CANVAS_BUCKET"
+        version = "latest"
+      },
+      {
+        key     = "OAUTH_LOGIN_URL"
+        secret  = "OAUTH_LOGIN_URL"
+        version = "latest"
+      },
+      {
+        key     = "RATE_LIMITS_JSON"
+        secret  = "RATE_LIMITS_JSON"
+        version = "latest"
+      },
+      {
+        key     = "USER_MANAGER_URL"
+        secret  = "USER_MANAGER_URL"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
         version = "latest"
       }
     ]

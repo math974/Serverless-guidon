@@ -184,6 +184,11 @@ functions = {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -206,6 +211,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
@@ -230,6 +240,11 @@ functions = {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -252,6 +267,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
@@ -281,6 +301,11 @@ functions = {
         key     = "GCS_CANVAS_BUCKET"
         secret  = "GCS_CANVAS_BUCKET"
         version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
       }
     ]
   }
@@ -303,6 +328,11 @@ functions = {
       {
         key     = "CANVAS_SERVICE_URL"
         secret  = "CANVAS_SERVICE_URL"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
         version = "latest"
       }
     ]
