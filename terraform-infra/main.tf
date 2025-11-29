@@ -241,16 +241,16 @@ module "firestore" {
 module "app_engine" {
   source = "./modules/app-engine"
 
-  project_id              = var.project_id
-  location_id             = var.app_engine_location
-  region                  = var.region
-  service_name            = var.app_engine_service_name
-  runtime                 = "python310"
-  entrypoint              = "gunicorn -b :$PORT --timeout 60 --workers 2 main:app"
-  source_dir              = "${path.root}/../web-frontend"
-  app_yaml_template_path  = "${path.root}/../web-frontend/app.yaml.tpl"
-  min_instances           = var.app_engine_min_instances
-  max_instances           = var.app_engine_max_instances
+  project_id                = var.project_id
+  location_id               = var.app_engine_location
+  region                    = var.region
+  service_name              = var.app_engine_service_name
+  runtime                   = "python310"
+  entrypoint                = "gunicorn -b :$PORT --timeout 60 --workers 2 main:app"
+  source_dir                = "${path.root}/../web-frontend"
+  app_yaml_template_path    = "${path.root}/../web-frontend/app.yaml.tpl"
+  min_instances             = var.app_engine_min_instances
+  max_instances             = var.app_engine_max_instances
   delete_service_on_destroy = false
 
   env_variables = {
