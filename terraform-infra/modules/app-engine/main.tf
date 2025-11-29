@@ -108,8 +108,9 @@ resource "google_app_engine_standard_app_version" "web_frontend" {
 
   delete_service_on_destroy = var.delete_service_on_destroy
 
-  # Empêcher les redéploiements inutiles
+  # Empêcher les redéploiements inutiles et gérer la suppression App Engine
   lifecycle {
+    create_before_destroy = true
     ignore_changes = [
       version_id,
       deployment[0].zip[0].source_url
