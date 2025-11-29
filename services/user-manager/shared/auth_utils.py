@@ -73,7 +73,33 @@ def verify_service_auth(request: Request, expected_audience: Optional[str] = Non
             if expected_audience.startswith('http://'):
                 expected_audience = expected_audience.replace('http://', 'https://', 1)
 
-        claims = id_token.verify_token(token, request_session, audience=expected_audience)
+        # Try to verify with expected audience first
+        claims = None
+        last_error = None
+        
+        # List of audiences to try
+        audiences_to_try = [expected_audience] if expected_audience else []
+        
+        # Also try with /user-manager path if not already included
+        if expected_audience and '/user-manager' not in expected_audience:
+            audiences_to_try.append(f"{expected_audience}/user-manager")
+        
+        # Try each audience until one works
+        for aud in audiences_to_try:
+            try:
+                claims = id_token.verify_token(token, request_session, audience=aud)
+                expected_audience = aud  # Update for logging
+                break
+            except ValueError as e:
+                last_error = e
+                continue
+        
+        if not claims:
+            # None of the audiences worked, raise the last error
+            if last_error:
+                raise last_error
+            else:
+                raise ValueError("No valid audience found")
 
         log.debug(
             "Token verified successfully",
