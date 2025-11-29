@@ -92,7 +92,7 @@ functions = {
     entry_point         = "user_management_handler"
     source_dir          = "../services/user-manager"
     runtime             = "python311"
-    authorized_invokers = ["api-gateway"]
+    authorized_invokers = ["api-gateway", "cloud-functions"]
     secret_env = [
       {
         key     = "GCP_PROJECT_ID"
@@ -132,7 +132,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = []
+    authorized_invokers = ["cloud-functions"]
     secret_env = [
       {
         key     = "GCP_PROJECT_ID"
