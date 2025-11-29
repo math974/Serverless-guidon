@@ -160,7 +160,8 @@ module "functions" {
     module.service_accounts,
     google_secret_manager_secret_version.gcs_canvas_bucket_version,
     google_secret_manager_secret_version.oauth_login_url_initial,
-    google_secret_manager_secret_version.discord_redirect_uri_initial
+    google_secret_manager_secret_version.discord_redirect_uri_initial,
+    google_secret_manager_secret_version.gcp_project_id
   ]
 }
 
@@ -534,4 +535,31 @@ resource "google_secret_manager_secret_version" "web_frontend_url_real" {
     google_secret_manager_secret_version.web_frontend_url_initial,
     module.app_engine
   ]
+}
+
+# Secret GCP_PROJECT_ID pour toutes les fonctions
+resource "google_secret_manager_secret" "gcp_project_id" {
+  project   = var.project_id
+  secret_id = "GCP_PROJECT_ID"
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+resource "google_secret_manager_secret_version" "gcp_project_id" {
+  secret      = google_secret_manager_secret.gcp_project_id.id
+  secret_data = var.project_id
+}
+
+# Accès au secret GCP_PROJECT_ID pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "gcp_project_id_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gcp_project_id.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
 }

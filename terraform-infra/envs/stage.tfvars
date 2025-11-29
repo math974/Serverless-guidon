@@ -19,6 +19,11 @@ functions = {
     authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -51,6 +56,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["allUsers"] # Invoqué par l'API Gateway
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "DISCORD_REDIRECT_URI"
         secret  = "DISCORD_REDIRECT_URI"
@@ -85,6 +95,11 @@ functions = {
     authorized_invokers = ["api-gateway"] # Invoqué par l'API Gateway
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
@@ -96,6 +111,11 @@ functions = {
     source_dir  = "../services/discord-registrar"
     runtime     = "python311"
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "DISCORD_BOT_TOKEN"
         secret  = "DISCORD_BOT_TOKEN"
@@ -115,6 +135,11 @@ functions = {
     authorized_invokers = [] # Pas invoqué via API Gateway ou Pub/Sub
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
@@ -133,6 +158,11 @@ functions = {
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -145,6 +175,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -169,6 +204,11 @@ functions = {
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -191,6 +231,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -215,6 +260,11 @@ functions = {
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -237,6 +287,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -265,6 +320,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["allUsers"] # Invoqué par Pub/Sub push subscription
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"

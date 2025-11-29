@@ -19,6 +19,11 @@ functions = {
     authorized_invokers = ["api-gateway"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_PUBLIC_KEY"
         secret  = "DISCORD_PUBLIC_KEY"
         version = "latest"
@@ -57,6 +62,11 @@ functions = {
     authorized_invokers = ["allUsers"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "DISCORD_CLIENT_ID"
         secret  = "DISCORD_CLIENT_ID"
         version = "latest"
@@ -90,6 +100,11 @@ functions = {
     authorized_invokers = ["api-gateway"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
         version = "latest"
@@ -100,6 +115,13 @@ functions = {
     entry_point = "registrar_handler"
     source_dir  = "../services/discord-registrar"
     runtime     = "python311"
+    secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      }
+    ]
   }
   "canvas-service" = {
     entry_point         = "canvas_service"
@@ -107,6 +129,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = []
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "FIRESTORE_DATABASE"
         secret  = "FIRESTORE_DATABASE"
@@ -126,6 +153,11 @@ functions = {
     authorized_invokers = ["pubsub"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -138,6 +170,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -157,6 +194,11 @@ functions = {
     authorized_invokers = ["pubsub"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -174,6 +216,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -193,6 +240,11 @@ functions = {
     authorized_invokers = ["pubsub"]
     secret_env = [
       {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -210,6 +262,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["pubsub"]
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
@@ -233,6 +290,11 @@ functions = {
     runtime             = "python311"
     authorized_invokers = ["allUsers"]
     secret_env = [
+      {
+        key     = "GCP_PROJECT_ID"
+        secret  = "GCP_PROJECT_ID"
+        version = "latest"
+      },
       {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
