@@ -250,11 +250,6 @@ functions = {
         version = "latest"
       },
       {
-        key     = "USER_MANAGER_URL"
-        secret  = "USER_MANAGER_URL"
-        version = "latest"
-      },
-      {
         key     = "WEB_FRONTEND_URL"
         secret  = "WEB_FRONTEND_URL"
         version = "latest"
