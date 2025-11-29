@@ -112,7 +112,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = ["allUsers"]
+    authorized_invokers = []
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -263,7 +263,7 @@ functions = {
     entry_point         = "processor_canvas_state_handler"
     source_dir          = "../services/processor-canvas-state"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"]
+    authorized_invokers = ["allUsers"]
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
