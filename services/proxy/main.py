@@ -52,7 +52,8 @@ def proxy_handler(request: Request):
 
     # --- Health check ---
     if path == "/health" and method == "GET":
-        response = health_handler(request)
+        result = health_handler(request)
+        response = result if isinstance(result, Response) else make_response(result[0], result[1]) if isinstance(result, tuple) else result
         return add_cors_headers(response)
 
     # --- Web interactions endpoint ---
