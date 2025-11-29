@@ -37,6 +37,12 @@ resource "google_api_gateway_api_config" "config" {
   api                  = google_api_gateway_api.api.api_id
   api_config_id_prefix = var.api_config_id_prefix
 
+  gateway_config {
+    backend_config {
+      google_service_account = var.service_account_email
+    }
+  }
+
   openapi_documents {
     document {
       path     = var.openapi_document_path
