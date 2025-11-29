@@ -82,7 +82,7 @@ resource "google_storage_bucket_object" "source" {
 # Déployer la version App Engine Standard
 resource "google_app_engine_standard_app_version" "web_frontend" {
   project    = var.project_id
-  version_id = "v${replace(timestamp(), "/[-:]/", "")}"
+  version_id = "v-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   service    = var.service_name
   runtime    = var.runtime
   entrypoint {
