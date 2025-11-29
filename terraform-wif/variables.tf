@@ -86,6 +86,7 @@ variable "roles" {
     "roles/firebase.admin",
     "roles/cloudconfig.admin",
     "roles/appengine.appAdmin",
-    "roles/appengine.appCreator"
+    "roles/appengine.appCreator",
+    "roles/cloudbuild.builds.editor"
   ]
 }
