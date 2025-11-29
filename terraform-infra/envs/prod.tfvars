@@ -42,13 +42,18 @@ functions = {
     authorized_invokers = ["api-gateway"]
     secret_env = [
       {
-        key     = "FIRESTORE_DATABASE"
-        secret  = "FIRESTORE_DATABASE"
+        key     = "DISCORD_REDIRECT_URI"
+        secret  = "DISCORD_REDIRECT_URI"
         version = "latest"
       },
       {
-        key     = "DISCORD_REDIRECT_URI"
-        secret  = "DISCORD_REDIRECT_URI"
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
         version = "latest"
       }
     ]
@@ -267,4 +272,13 @@ gcs_buckets = {
     ]
   }
 }
+
+# ========================================
+# Configuration App Engine
+# ========================================
+
+app_engine_location      = "europe-west"
+app_engine_service_name  = "default"
+app_engine_min_instances = 1
+app_engine_max_instances = 10
 
