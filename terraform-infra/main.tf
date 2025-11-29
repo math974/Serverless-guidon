@@ -5,11 +5,19 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 5.0"
+      version = ">= 5.0, < 8.0"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = ">= 5.0"
+      version = ">= 5.0, < 8.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
     }
   }
 
@@ -224,6 +232,37 @@ module "firestore" {
   # Les permissions IAM sont gérées dans le module service-accounts
   # On ne passe plus de service accounts ici
   function_service_accounts = []
+}
+
+# ============================================================================
+# Web Frontend - App Engine
+# ============================================================================
+
+module "app_engine" {
+  source = "./modules/app-engine"
+
+  project_id                = var.project_id
+  location_id               = var.app_engine_location
+  region                    = var.region
+  service_name              = var.app_engine_service_name
+  runtime                   = "python310"
+  entrypoint                = "gunicorn -b :$PORT --timeout 60 --workers 2 main:app"
+  source_dir                = "${path.root}/../web-frontend"
+  app_yaml_template_path    = "${path.root}/../web-frontend/app.yaml.tpl"
+  min_instances             = var.app_engine_min_instances
+  max_instances             = var.app_engine_max_instances
+  delete_service_on_destroy = false
+
+  env_variables = {
+    GATEWAY_URL = module.api_gateway.gateway_url
+  }
+
+  labels = var.labels
+
+  depends_on = [
+    module.api_gateway,
+    module.firestore
+  ]
 }
 
 module "pubsub" {
@@ -449,4 +488,50 @@ resource "google_secret_manager_secret_iam_member" "discord_redirect_uri_access"
   member    = module.service_accounts["cloud-functions"].member
 
   depends_on = [module.service_accounts]
+}
+
+# ========================================
+# Secret pour l'URL du Web Frontend
+# ========================================
+
+resource "google_secret_manager_secret" "web_frontend_url" {
+  project   = var.project_id
+  secret_id = "WEB_FRONTEND_URL"
+
+  replication {
+    auto {}
+  }
+
+  labels = var.labels
+}
+
+# Valeur temporaire initiale pour WEB_FRONTEND_URL (pour le premier déploiement)
+resource "google_secret_manager_secret_version" "web_frontend_url_initial" {
+  secret      = google_secret_manager_secret.web_frontend_url.id
+  secret_data = "https://pending-web-frontend-deployment.example.com"
+
+  lifecycle {
+    ignore_changes = [secret_data] # Ne pas écraser la vraie valeur après le premier apply
+  }
+}
+
+# Accès au secret WEB_FRONTEND_URL pour les Cloud Functions
+resource "google_secret_manager_secret_iam_member" "web_frontend_url_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.web_frontend_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.service_accounts]
+}
+
+# Mise à jour avec la vraie URL du Web Frontend après le déploiement
+resource "google_secret_manager_secret_version" "web_frontend_url_real" {
+  secret      = google_secret_manager_secret.web_frontend_url.id
+  secret_data = module.app_engine.app_url
+
+  depends_on = [
+    google_secret_manager_secret_version.web_frontend_url_initial,
+    module.app_engine
+  ]
 }

@@ -19,6 +19,21 @@ functions = {
     authorized_invokers = ["api-gateway"]
     secret_env = [
       {
+        key     = "DISCORD_PUBLIC_KEY"
+        secret  = "DISCORD_PUBLIC_KEY"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_BOT_TOKEN"
+        secret  = "DISCORD_BOT_TOKEN"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_APPLICATION_ID"
+        secret  = "DISCORD_APPLICATION_ID"
+        version = "latest"
+      },
+      {
         key     = "USER_MANAGER_URL"
         secret  = "USER_MANAGER_URL"
         version = "latest"
@@ -42,13 +57,28 @@ functions = {
     authorized_invokers = ["api-gateway"]
     secret_env = [
       {
-        key     = "FIRESTORE_DATABASE"
-        secret  = "FIRESTORE_DATABASE"
+        key     = "DISCORD_CLIENT_ID"
+        secret  = "DISCORD_CLIENT_ID"
+        version = "latest"
+      },
+      {
+        key     = "DISCORD_CLIENT_SECRET"
+        secret  = "DISCORD_CLIENT_SECRET"
         version = "latest"
       },
       {
         key     = "DISCORD_REDIRECT_URI"
         secret  = "DISCORD_REDIRECT_URI"
+        version = "latest"
+      },
+      {
+        key     = "WEB_FRONTEND_URL"
+        secret  = "WEB_FRONTEND_URL"
+        version = "latest"
+      },
+      {
+        key     = "FIRESTORE_DATABASE"
+        secret  = "FIRESTORE_DATABASE"
         version = "latest"
       }
     ]
@@ -267,6 +297,15 @@ gcs_buckets = {
     ]
   }
 }
+
+# ========================================
+# Configuration App Engine
+# ========================================
+
+app_engine_location      = "europe-west"
+app_engine_service_name  = "default"
+app_engine_min_instances = 0
+app_engine_max_instances = 3
 
 
 

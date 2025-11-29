@@ -129,7 +129,30 @@ variable "service_url_secrets" {
   }
 }
 
+# ========================================
+# Variables App Engine
+# ========================================
 
+variable "app_engine_location" {
+  description = "Localisation de l'application App Engine (ex: europe-west)"
+  type        = string
+  default     = "europe-west"
+}
 
+variable "app_engine_service_name" {
+  description = "Nom du service App Engine"
+  type        = string
+  default     = "default"
+}
 
+variable "app_engine_min_instances" {
+  description = "Nombre minimum d'instances App Engine"
+  type        = number
+  default     = 0
+}
 
+variable "app_engine_max_instances" {
+  description = "Nombre maximum d'instances App Engine"
+  type        = number
+  default     = 10
+}
