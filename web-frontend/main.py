@@ -172,17 +172,12 @@ def web_app():
 def get_canvas_size():
     """Get canvas size from canvas-service or use default."""
     try:
-        canvas_service_url = os.environ.get('CANVAS_SERVICE_URL', GATEWAY_URL)
-        response = requests.get(
-            f"{canvas_service_url}/canvas/size",
-            timeout=0.5
-        )
-        if response.status_code == 200:
-            data = response.json()
-            canvas_size = data.get('size')
-            if canvas_size:
-                return canvas_size
-    except (requests.exceptions.RequestException, Exception) as e:
+        from shared.canvas_client import CanvasClient
+        canvas_client = CanvasClient()
+        canvas_size = canvas_client.get_canvas_size()
+        if canvas_size:
+            return canvas_size
+    except Exception as e:
         error_msg = str(e) if e else "Unknown error"
         logger.debug("Could not fetch canvas size from API", error=error_msg)
 

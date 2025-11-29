@@ -37,7 +37,11 @@ class UserManagementClient:
             headers['X-Correlation-ID'] = correlation_id
 
         try:
-            token = id_token.fetch_id_token(self._auth_request, self.base_url)
+            from urllib.parse import urlparse
+            parsed = urlparse(self.base_url)
+            normalized_audience = f"{parsed.scheme}://{parsed.netloc}"
+
+            token = id_token.fetch_id_token(self._auth_request, normalized_audience)
             headers['Authorization'] = f'Bearer {token}'
         except Exception as e:
             logger.warning(
