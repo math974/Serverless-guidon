@@ -112,7 +112,7 @@ functions = {
     entry_point         = "canvas_service"
     source_dir          = "../services/canvas-service"
     runtime             = "python311"
-    authorized_invokers = ["allUsers"] # Pas invoqué via API Gateway ou Pub/Sub
+    authorized_invokers = [] # Pas invoqué via API Gateway ou Pub/Sub
     secret_env = [
       {
         key     = "FIRESTORE_DATABASE"
@@ -263,7 +263,7 @@ functions = {
     entry_point         = "processor_canvas_state_handler"
     source_dir          = "../services/processor-canvas-state"
     runtime             = "python311"
-    authorized_invokers = ["pubsub"] # Invoqué par Pub/Sub push subscription
+    authorized_invokers = ["allUsers"] # Invoqué par Pub/Sub push subscription
     secret_env = [
       {
         key     = "USER_MANAGER_URL"
