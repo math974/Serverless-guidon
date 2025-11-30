@@ -13,5 +13,10 @@ output "service_config" {
   value       = google_cloudfunctions2_function.function.service_config
 }
 
+output "cloud_run_url" {
+  description = "URL du service Cloud Run sous-jacent (pour l'authentification)"
+  value       = try(google_cloudfunctions2_function.function.service_config[0].uri, google_cloudfunctions2_function.function.url)
+}
+
 
 
