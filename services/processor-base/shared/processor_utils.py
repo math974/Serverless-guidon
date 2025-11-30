@@ -34,14 +34,13 @@ def get_auth_token(audience: str, logger=None) -> Optional[str]:
             )
 
         request_session = google_requests.Request()
-        token = id_token.fetch_id_token(request_session, audience)
-        
+        token = id_token.fetch_id_token(request_session, normalized_audience)
         return token
     except Exception as e:
         if logger:
             logger.warning(
                 "Failed to get identity token",
-                error=str(e),
+                error=e,
                 audience=audience
             )
         return None

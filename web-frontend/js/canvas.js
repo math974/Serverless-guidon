@@ -255,6 +255,108 @@ function stopAutoRefresh() {
     }
 }
 
+/**
+ * Poll for a response with early termination and exponential backoff.
+ * Checks immediately before the first delay to minimize latency.
+ * Uses exponential backoff to reduce server load and unnecessary requests.
+ *
+ * @param {string} token - The token to poll for
+ * @param {Object} options - Polling options
+ * @param {number} options.maxAttempts - Maximum number of polling attempts (default: 30)
+ * @param {number} options.initialDelay - Initial delay in ms (default: 200)
+ * @param {number} options.maxDelay - Maximum delay in ms (default: 2000)
+ * @param {number} options.backoffMultiplier - Multiplier for exponential backoff (default: 1.5)
+ * @param {number} options.jitterMax - Maximum jitter in ms to add (default: 100)
+ * @param {Function} options.checkResponse - Function to check if response is complete
+ * @param {Function} options.onSuccess - Callback when response is received
+ * @param {Function} options.onError - Callback when error occurs
+ * @returns {Promise<Object|null>} Response data or null if timeout
+ */
+async function pollWithEarlyTermination(token, options = {}) {
+    const {
+        maxAttempts = 30,
+        initialDelay = 200,
+        maxDelay = 2000,
+        backoffMultiplier = 1.5,
+        jitterMax = 100,
+        checkResponse = (data) => data.status !== 'pending' && data.status !== 'processing',
+        onSuccess = null,
+        onError = null
+    } = options;
+
+    // Early termination: Check immediately before first delay
+    try {
+        const immediateResponse = await fetch(`/response/${token}`);
+        if (immediateResponse.status === 200) {
+            const data = await immediateResponse.json();
+            if (checkResponse(data)) {
+                if (onSuccess) {
+                    await onSuccess(data);
+                }
+                return data;
+            }
+        } else if (immediateResponse.status === 202) {
+            // Response pending, continue polling
+        } else {
+            // Unexpected status, return null
+            if (onError) {
+                onError(new Error(`Unexpected status: ${immediateResponse.status}`));
+            }
+            return null;
+        }
+    } catch (error) {
+        console.error('Error in immediate poll check:', error);
+        // Continue with polling despite immediate check error
+    }
+
+    // Exponential backoff polling
+    let delay = initialDelay;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        // Wait with exponential backoff + jitter
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        try {
+            const response = await fetch(`/response/${token}`);
+            if (response.status === 200) {
+                const data = await response.json();
+                if (checkResponse(data)) {
+                    if (onSuccess) {
+                        await onSuccess(data);
+                    }
+                    return data;
+                }
+            } else if (response.status === 202) {
+                // Response still pending, continue with increased delay
+            } else {
+                // Unexpected status
+                if (onError) {
+                    onError(new Error(`Unexpected status: ${response.status}`));
+                }
+                return null;
+            }
+        } catch (error) {
+            console.error('Error polling for response:', error);
+            if (attempt === maxAttempts - 1) {
+                if (onError) {
+                    onError(error);
+                }
+                return null;
+            }
+        }
+
+        // Calculate next delay with exponential backoff
+        delay = Math.min(delay * backoffMultiplier, maxDelay);
+        // Add jitter to avoid thundering herd problem
+        delay += Math.random() * jitterMax;
+    }
+
+    // Timeout
+    if (onError) {
+        onError(new Error('Polling timeout'));
+    }
+    return null;
+}
+
 function enableDrawButton() {
     const drawButton = document.querySelector('button[onclick="drawPixel()"]');
     if (drawButton) {
@@ -339,32 +441,31 @@ async function loadCanvas(silent = false) {
 }
 
 async function pollForCanvasStateResult(token, silent = false) {
-    const maxAttempts = 30;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        try {
-            const response = await fetch(`/response/${token}`);
-            if (response.status === 200) {
-                const data = await response.json();
-                if (data.status === 'success') {
-                    await handleCanvasStateResponse(data, silent);
-                    return;
-                } else if (data.status === 'error') {
-                    showNotification(data.message || 'Failed to load canvas', 'error');
-                    return;
-                }
-            } else if (response.status === 202) {
-            } else {
-                console.error('Unexpected status:', response.status);
-                break;
+    const result = await pollWithEarlyTermination(token, {
+        maxAttempts: 30,
+        initialDelay: 200,
+        maxDelay: 2000,
+        checkResponse: (data) => {
+            return data.status === 'success' || data.status === 'error';
+        },
+        onSuccess: async (data) => {
+            if (data.status === 'success') {
+                await handleCanvasStateResponse(data, silent);
+            } else if (data.status === 'error') {
+                showNotification(data.message || 'Failed to load canvas', 'error');
             }
-        } catch (error) {
-            console.error('Error polling for canvas state:', error);
-            break;
+        },
+        onError: (error) => {
+            console.error('Polling timeout for token:', token, error);
+            if (!silent) {
+                showNotification('Timeout waiting for canvas state', 'error');
+            }
         }
+    });
+
+    if (!result && !silent) {
+        showNotification('Timeout waiting for canvas state', 'error');
     }
-    console.error('Polling timeout for token:', token);
-    showNotification('Timeout waiting for canvas state', 'error');
 }
 
 async function handleCanvasStateResponse(data, silent = false) {
@@ -702,7 +803,6 @@ async function drawPixel() {
                         showNotification(`Pixel drawn successfully at (${x}, ${y})!`, 'success');
                         addActivity(`Drew ${color} at (${x}, ${y})`);
 
-                        // Wait longer before reloading to ensure server has propagated the change
                         setTimeout(async () => {
                             try {
                                 await loadCanvas(true);
@@ -712,9 +812,8 @@ async function drawPixel() {
                                 console.error('[canvas.js] Error reloading canvas after draw:', error);
                                 showNotification('Canvas drawn but failed to refresh. Please reload page.', 'warning');
                             }
-                        }, 3000); // Increased from 1500ms to 3000ms
+                        }, 3000);
                     } else if (isError) {
-                        // Remove from pending draws on error
                         const key = `${x},${y}`;
                         CanvasState.pendingDraws.delete(key);
 
@@ -729,7 +828,6 @@ async function drawPixel() {
                     showNotification(`Pixel drawn successfully at (${x}, ${y})!`, 'success');
                     addActivity(`Drew ${color} at (${x}, ${y})`);
 
-                    // Wait longer before reloading to ensure server has propagated the change
                     setTimeout(async () => {
                         try {
                             await loadCanvas(true);
@@ -739,9 +837,8 @@ async function drawPixel() {
                             console.error('[canvas.js] Error reloading canvas after draw:', error);
                             showNotification('Canvas drawn but failed to refresh. Please reload page.', 'warning');
                         }
-                    }, 3000); // Increased from 1500ms to 3000ms
+                    }, 3000);
                 } else {
-                    // Remove from pending draws on failure
                     const key = `${x},${y}`;
                     CanvasState.pendingDraws.delete(key);
 
@@ -757,7 +854,6 @@ async function drawPixel() {
                 CanvasState.isDrawing = false;
                 enableDrawButton();
 
-                // Remove from pending draws on error
                 const key = `${x},${y}`;
                 CanvasState.pendingDraws.delete(key);
 
@@ -840,40 +936,35 @@ async function showPixelInfo(x, y) {
 }
 
 async function pollForPixelInfoResult(token) {
-    const maxAttempts = 10;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        try {
-            const response = await fetch(`/response/${token}`);
-            if (response.status === 200) {
-                const data = await response.json();
-
-                if (data.status === 'processing') {
-                    continue;
-                }
-
-                if (data.status === 'success' ||
-                    (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0)) {
-                    await handlePixelInfoResponse(data);
-                    return;
-                } else if (data.status === 'error') {
-                    showNotification(data.message || 'Failed to load pixel info', 'error');
-                    return;
-                }
-            } else if (response.status === 202) {
-                continue;
-            } else {
-                break;
+    const result = await pollWithEarlyTermination(token, {
+        maxAttempts: 10,
+        initialDelay: 200,
+        maxDelay: 2000,
+        checkResponse: (data) => {
+            if (data.status === 'processing') {
+                return false;
             }
-        } catch (error) {
+            return data.status === 'success' ||
+                    data.status === 'error' ||
+                    (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0);
+        },
+        onSuccess: async (data) => {
+            if (data.status === 'success' ||
+                (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0)) {
+                await handlePixelInfoResponse(data);
+            } else if (data.status === 'error') {
+                showNotification(data.message || 'Failed to load pixel info', 'error');
+            }
+        },
+        onError: (error) => {
             console.error('Error polling for pixel info:', error);
-            if (attempt === maxAttempts - 1) {
-                showNotification('Error loading pixel info', 'error');
-                return;
-            }
+            showNotification('Timeout waiting for pixel info', 'error');
         }
+    });
+
+    if (!result) {
+        showNotification('Timeout waiting for pixel info', 'error');
     }
-    showNotification('Timeout waiting for pixel info', 'error');
 }
 
 function getAvatarUrl(userId, avatarHash = null) {
@@ -1110,25 +1201,20 @@ async function loadStats() {
 }
 
 async function pollForStatsResult(token) {
-    const maxAttempts = 10;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        try {
-            const response = await fetch(`/response/${token}`);
-            if (response.status === 200) {
-                const data = await response.json();
-                if (data.status === 'success') {
-                    parseStatsFromResponse(data);
-                    return;
-                }
-            } else if (response.status !== 202) {
-                break;
-            }
-        } catch (error) {
+    const result = await pollWithEarlyTermination(token, {
+        maxAttempts: 10,
+        initialDelay: 200,
+        maxDelay: 2000,
+        checkResponse: (data) => {
+            return data.status === 'success';
+        },
+        onSuccess: (data) => {
+            parseStatsFromResponse(data);
+        },
+        onError: (error) => {
             console.error('Error polling for stats:', error);
-            break;
         }
-    }
+    });
 }
 
 function updateStatsDisplay(stats) {
@@ -1256,69 +1342,86 @@ function parseStatsFromResponse(data) {
 }
 
 async function pollForDrawResult(token) {
-    const maxAttempts = 30;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        try {
-            const response = await fetch(`/response/${token}`);
-            if (response.status === 200) {
-            const data = await response.json();
+    let resultData = null;
+    let isSuccess = false;
+    let isError = false;
 
-                let isSuccess = false;
-                let isError = false;
+    const result = await pollWithEarlyTermination(token, {
+        maxAttempts: 30,
+        initialDelay: 200,
+        maxDelay: 2000,
+        checkResponse: (data) => {
+            if (data.status === 'processing') {
+                return false;
+            }
 
-                if (data.status === 'processing') {
-                    continue;
-                }
+            isSuccess = false;
+            isError = false;
 
-                if (data.status === 'success') {
-                    isSuccess = true;
-                } else if (data.status === 'error') {
+            if (data.status === 'success') {
+                isSuccess = true;
+                resultData = data;
+                return true;
+            } else if (data.status === 'error') {
+                isError = true;
+                resultData = data;
+                return true;
+            } else if (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
+                const embed = data.data.embeds[0];
+                const title = embed.title || '';
+                const description = embed.description || '';
+                const titleLower = title.toLowerCase();
+                const descLower = description.toLowerCase();
+
+                if (titleLower.includes('error') || titleLower.includes('failed') ||
+                    descLower.includes('error') || descLower.includes('failed') ||
+                    descLower.includes('invalid') || descLower.includes('unable')) {
                     isError = true;
-                } else if (data.type === 4 && data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
-                    const embed = data.data.embeds[0];
-                    const title = embed.title || '';
-                    const description = embed.description || '';
-                    const titleLower = title.toLowerCase();
-                    const descLower = description.toLowerCase();
-
-                    if (titleLower.includes('error') || titleLower.includes('failed') ||
-                        descLower.includes('error') || descLower.includes('failed') ||
-                        descLower.includes('invalid') || descLower.includes('unable')) {
-                        isError = true;
-                    } else if (title === 'Pixel Placed Successfully' ||
-                             titleLower.includes('success') || titleLower.includes('placed') ||
-                             descLower.includes('successfully placed') ||
-                             descLower.includes('successfully') ||
-                             descLower.includes('placed')) {
-                        isSuccess = true;
-                    } else {
-                        isSuccess = true;
-                    }
-                } else if (data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
+                } else if (title === 'Pixel Placed Successfully' ||
+                         titleLower.includes('success') || titleLower.includes('placed') ||
+                         descLower.includes('successfully placed') ||
+                         descLower.includes('successfully') ||
+                         descLower.includes('placed')) {
                     isSuccess = true;
-                } else if (data.token) {
+                } else {
                     isSuccess = true;
                 }
-
-                if (isSuccess) {
-                    return { success: true, data };
-                } else if (isError) {
-                    const errorMessage = data.message || (data.data?.embeds?.[0]?.description) || 'Failed to draw pixel';
-                    showNotification(errorMessage, 'error');
-                    return { success: false };
-                }
-            } else if (response.status === 202) {
-                continue;
+                resultData = data;
+                return true;
+            } else if (data.data && data.data.embeds && Array.isArray(data.data.embeds) && data.data.embeds.length > 0) {
+                isSuccess = true;
+                resultData = data;
+                return true;
+            } else if (data.token) {
+                isSuccess = true;
+                resultData = data;
+                return true;
             }
-    } catch (error) {
+
+            return false;
+        },
+        onSuccess: (data) => {
+            // Response already processed in checkResponse
+        },
+        onError: (error) => {
             console.error('Error polling for draw result:', error);
-            if (attempt === maxAttempts - 1) {
-                return { success: false };
-            }
+            showNotification('Timeout waiting for draw result', 'error');
+        }
+    });
+
+    if (result && resultData) {
+        if (isSuccess) {
+            return { success: true, data: resultData };
+        } else if (isError) {
+            const errorMessage = resultData.message || (resultData.data?.embeds?.[0]?.description) || 'Failed to draw pixel';
+            showNotification(errorMessage, 'error');
+            return { success: false };
         }
     }
-    showNotification('Timeout waiting for draw result', 'error');
+
+    if (!result) {
+        showNotification('Timeout waiting for draw result', 'error');
+    }
     return { success: false };
 }
 

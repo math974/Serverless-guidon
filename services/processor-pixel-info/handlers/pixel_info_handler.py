@@ -22,7 +22,11 @@ _canvas_client = None
 def get_canvas_client():
     global _canvas_client
     if _canvas_client is None:
-        _canvas_client = CanvasClient()
+        try:
+            _canvas_client = CanvasClient()
+        except Exception as exc:
+            logger.error("Cannot instantiate CanvasClient", error=exc)
+            return None
     return _canvas_client
 
 @CommandHandler.register('pixel_info')
@@ -31,7 +35,7 @@ def handle_pixel_info(interaction: dict = None):
     correlation_id = interaction.get('correlation_id') if interaction else None
 
     canvas_client = get_canvas_client()
-    if not canvas_client.base_url:
+    if not canvas_client:
         return create_error_embed("Service unavailable", "Canvas service is not configured.")
 
     options = extract_options(interaction)
