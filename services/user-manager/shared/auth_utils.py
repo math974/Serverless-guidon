@@ -14,14 +14,28 @@ def get_service_url_from_request(request: Request) -> Optional[str]:
         request: Flask request object
 
     Returns:
-        Full service URL (e.g., https://service-name-xxx-ew.a.run.app) or None
+        Full service URL including function path for Cloud Functions
+        (e.g., https://region-project.cloudfunctions.net/function-name)
+        or Cloud Run URL (e.g., https://service-name-xxx.a.run.app)
     """
     host = request.headers.get('Host')
     if host:
         scheme = request.headers.get('X-Forwarded-Proto', 'https')
         if ':' in host:
             host = host.split(':')[0]
-        return f"{scheme}://{host}"
+        
+        base_url = f"{scheme}://{host}"
+        
+        # For Cloud Functions Gen2, include the function name (first path segment)
+        # Request path like: /user-manager/api/users/123
+        # We want: https://domain.cloudfunctions.net/user-manager
+        if 'cloudfunctions.net' in host and request.path:
+            path_parts = request.path.strip('/').split('/')
+            if path_parts and path_parts[0]:
+                # First segment is the function name
+                base_url = f"{base_url}/{path_parts[0]}"
+        
+        return base_url
     return None
 
 
@@ -73,33 +87,7 @@ def verify_service_auth(request: Request, expected_audience: Optional[str] = Non
             if expected_audience.startswith('http://'):
                 expected_audience = expected_audience.replace('http://', 'https://', 1)
 
-        # Try to verify with expected audience first
-        claims = None
-        last_error = None
-        
-        # List of audiences to try
-        audiences_to_try = [expected_audience] if expected_audience else []
-        
-        # Also try with /user-manager path if not already included
-        if expected_audience and '/user-manager' not in expected_audience:
-            audiences_to_try.append(f"{expected_audience}/user-manager")
-        
-        # Try each audience until one works
-        for aud in audiences_to_try:
-            try:
-                claims = id_token.verify_token(token, request_session, audience=aud)
-                expected_audience = aud  # Update for logging
-                break
-            except ValueError as e:
-                last_error = e
-                continue
-        
-        if not claims:
-            # None of the audiences worked, raise the last error
-            if last_error:
-                raise last_error
-            else:
-                raise ValueError("No valid audience found")
+        claims = id_token.verify_token(token, request_session, audience=expected_audience)
 
         log.debug(
             "Token verified successfully",
