@@ -423,6 +423,15 @@ resource "google_secret_manager_secret_iam_member" "gcs_bucket_access" {
   depends_on = [module.service_accounts]
 }
 
+# Permissions IAM pour le service account cloud-functions sur le bucket canvas-snapshots
+resource "google_storage_bucket_iam_member" "canvas_bucket_admin" {
+  bucket = module.gcs_buckets["canvas-snapshots"].bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.gcs_buckets, module.service_accounts]
+}
+
 # ============================================================================
 # PHASE 1 : Secrets basés sur l'API Gateway (valeurs temporaires)
 # ============================================================================
@@ -562,4 +571,28 @@ resource "google_secret_manager_secret_iam_member" "gcp_project_id_access" {
   member    = module.service_accounts["cloud-functions"].member
 
   depends_on = [module.service_accounts]
+}
+
+# ========================================
+# OUTPUTS
+# ========================================
+
+output "api_gateway_url" {
+  description = "URL de l'API Gateway"
+  value       = module.api_gateway.gateway_url
+}
+
+output "app_engine_url" {
+  description = "URL du frontend App Engine"
+  value       = module.app_engine.app_url
+}
+
+output "project_id" {
+  description = "ID du projet GCP"
+  value       = var.project_id
+}
+
+output "region" {
+  description = "Région GCP"
+  value       = var.region
 }

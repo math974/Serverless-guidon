@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   packages: write
   pull-requests: write
@@ -205,3 +205,20 @@ jobs:
             -auto-approve \
             -var-file=${{ steps.paths.outputs.TFVARS }} \
             -input=false
+
+      - name: Update GitHub Repo Description with Frontend URL (prod only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd terraform-infra
+          FRONTEND_URL=$(terraform output -raw app_engine_url 2>/dev/null || echo "")
+          if [ -n "$FRONTEND_URL" ]; then
+            echo "Updating GitHub repo description with URL: $FRONTEND_URL"
+            gh api repos/${{ github.repository }} \
+              --method PATCH \
+              -f homepage="$FRONTEND_URL" \
+              -f description="Guidon - Serverless Discord Bot for collaborative drawing | Frontend: $FRONTEND_URL"
+          else
+            echo "Frontend URL not found in Terraform outputs, skipping update"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
