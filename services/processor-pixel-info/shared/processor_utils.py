@@ -19,11 +19,22 @@ def get_auth_token(audience: str, logger=None) -> Optional[str]:
         return None
 
     try:
+        from urllib.parse import urlparse
         from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
 
+        parsed = urlparse(audience)
+        normalized_audience = f"{parsed.scheme}://{parsed.netloc}"
+
+        if logger:
+            logger.debug(
+                "Normalizing audience for identity token",
+                original_audience=audience,
+                normalized_audience=normalized_audience
+            )
+
         request_session = google_requests.Request()
-        token = id_token.fetch_id_token(request_session, audience)
+        token = id_token.fetch_id_token(request_session, normalized_audience)
         return token
     except Exception as e:
         if logger:
