@@ -27,8 +27,8 @@ def get_service_url_from_request(request: Request) -> Optional[str]:
         base_url = f"{scheme}://{host}"
         
         # For Cloud Functions Gen2, include the function name (first path segment)
-        # Request path like: /user-manager/api/users/123
-        # We want: https://domain.cloudfunctions.net/user-manager
+        # Request path like: /function-name/api/endpoint
+        # We want: https://domain.cloudfunctions.net/function-name
         if 'cloudfunctions.net' in host and request.path:
             path_parts = request.path.strip('/').split('/')
             if path_parts and path_parts[0]:

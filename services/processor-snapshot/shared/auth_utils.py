@@ -14,14 +14,28 @@ def get_service_url_from_request(request: Request) -> Optional[str]:
         request: Flask request object
 
     Returns:
-        Full service URL (e.g., https://service-name-xxx-ew.a.run.app) or None
+        Full service URL including function path for Cloud Functions
+        (e.g., https://region-project.cloudfunctions.net/function-name)
+        or Cloud Run URL (e.g., https://service-name-xxx.a.run.app)
     """
     host = request.headers.get('Host')
     if host:
         scheme = request.headers.get('X-Forwarded-Proto', 'https')
         if ':' in host:
             host = host.split(':')[0]
-        return f"{scheme}://{host}"
+        
+        base_url = f"{scheme}://{host}"
+        
+        # For Cloud Functions Gen2, include the function name (first path segment)
+        # Request path like: /function-name/api/endpoint
+        # We want: https://domain.cloudfunctions.net/function-name
+        if 'cloudfunctions.net' in host and request.path:
+            path_parts = request.path.strip('/').split('/')
+            if path_parts and path_parts[0]:
+                # First segment is the function name
+                base_url = f"{base_url}/{path_parts[0]}"
+        
+        return base_url
     return None
 
 
