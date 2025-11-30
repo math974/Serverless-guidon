@@ -23,13 +23,22 @@ def get_auth_token(audience: str, logger=None) -> Optional[str]:
         from google.auth.transport import requests as google_requests
 
         request_session = google_requests.Request()
+        
+        if logger:
+            logger.info(f"Fetching identity token for audience: {audience}")
+        
         token = id_token.fetch_id_token(request_session, audience)
+        
+        if logger:
+            logger.info(f"Identity token fetched successfully (length: {len(token) if token else 0})")
+        
         return token
     except Exception as e:
         if logger:
-            logger.warning(
+            logger.error(
                 "Failed to get identity token",
-                error=e,
+                error=str(e),
+                error_type=type(e).__name__,
                 audience=audience
             )
         return None
@@ -94,9 +103,17 @@ def get_authenticated_headers(audience: str, correlation_id: Optional[str] = Non
     if correlation_id:
         headers['X-Correlation-ID'] = correlation_id
 
+    if logger:
+        logger.info(f"Generating auth token for audience: {audience}", correlation_id=correlation_id)
+    
     auth_token = get_auth_token(audience, logger)
     if auth_token:
         headers['Authorization'] = f'Bearer {auth_token}'
+        if logger:
+            logger.info(f"Auth token generated successfully for {audience}", correlation_id=correlation_id)
+    else:
+        if logger:
+            logger.warning(f"Failed to generate auth token for {audience}", correlation_id=correlation_id)
 
     return headers
 
