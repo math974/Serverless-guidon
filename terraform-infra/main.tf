@@ -374,7 +374,7 @@ resource "google_secret_manager_secret_version" "real_urls" {
   for_each = var.service_url_secrets
 
   secret      = google_secret_manager_secret.service_urls[each.key].id
-  secret_data = module.functions[each.value].function_url
+  secret_data = module.functions[each.value].cloud_run_url
 
   depends_on = [
     google_secret_manager_secret_version.initial_urls,
