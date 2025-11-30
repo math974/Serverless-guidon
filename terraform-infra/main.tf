@@ -432,6 +432,15 @@ resource "google_storage_bucket_iam_member" "canvas_bucket_admin" {
   depends_on = [module.gcs_buckets, module.service_accounts]
 }
 
+# Permission pour lire les métadonnées du bucket (nécessaire pour bucket.exists())
+resource "google_storage_bucket_iam_member" "canvas_bucket_reader" {
+  bucket = module.gcs_buckets["canvas-snapshots"].bucket_name
+  role   = "roles/storage.legacyBucketReader"
+  member = module.service_accounts["cloud-functions"].member
+
+  depends_on = [module.gcs_buckets, module.service_accounts]
+}
+
 # ============================================================================
 # PHASE 1 : Secrets basés sur l'API Gateway (valeurs temporaires)
 # ============================================================================
