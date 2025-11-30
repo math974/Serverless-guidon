@@ -78,7 +78,6 @@ class CanvasManager:
     DEFAULT_COLOR = _settings.get('default_color', '#FFFFFF')
     PIXEL_SCALE = _settings.get('pixel_scale', 10)
 
-    BUCKET_NAME = os.environ.get('GCS_CANVAS_BUCKET', 'discord-canvas-snapshots')
     USER_MANAGER_URL = os.environ.get('USER_MANAGER_URL', _settings.get('user_manager_url', ''))
     USER_MANAGER_TIMEOUT = float(os.environ.get('USER_MANAGER_TIMEOUT', _settings.get('user_manager_timeout', 5)))
 
@@ -93,15 +92,37 @@ class CanvasManager:
         self._cache_ttl = 5
         self._cache_lock = Lock()
 
+        self.BUCKET_NAME = os.environ.get('GCS_CANVAS_BUCKET', 'discord-canvas-snapshots')
+
+        logger.info(
+            "Initializing CanvasManager with GCS bucket",
+            bucket_name=self.BUCKET_NAME,
+            env_var_set=bool(os.environ.get('GCS_CANVAS_BUCKET')),
+            env_var_value=os.environ.get('GCS_CANVAS_BUCKET', 'NOT_SET')
+        )
+
         try:
             self.storage_client = storage.Client()
             self.bucket = self.storage_client.bucket(self.BUCKET_NAME)
-            self.gcs_available = True
+
+            if not self.bucket.exists():
+                logger.error(
+                    "GCS bucket does not exist",
+                    bucket_name=self.BUCKET_NAME
+                )
+                self.gcs_available = False
+            else:
+                logger.info(
+                    "GCS bucket verified and accessible",
+                    bucket_name=self.BUCKET_NAME
+                )
+                self.gcs_available = True
         except Exception as e:
             logger.warning(
                 "GCS client not available",
                 error=e,
-                bucket=self.BUCKET_NAME
+                bucket=self.BUCKET_NAME,
+                error_type=type(e).__name__
             )
             self.gcs_available = False
 

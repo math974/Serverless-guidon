@@ -179,15 +179,26 @@ Discord/Web → API Gateway → Proxy Service → Pub/Sub Topics → Processor S
 │  5. Increment user usage (user-manager via identity token)                  │
 │  6. Generate response payload                                               │
 │  7. Send HTTP POST to webhook_url provided by client                        │
+│     (webhook_url = https://web-frontend-url/webhook)                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                    │
                                    │ HTTP POST to webhook_url
-                                   │ Body: { "success": true, "data": {...} }
+                                   │ Body: { "token": "...", "status": "success", "data": {...} }
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         WEB FRONTEND (App Engine)                           │
+│  POST /webhook: Receives webhook response from processor                   │
+│  Stores response in memory with token as key                                │
+│  GET /response/<token>: Returns stored response (polling endpoint)         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   │ Client polls GET /response/<token>
+                                   │ (every 500ms-1000ms, max 30 attempts)
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              WEB CLIENT                                     │
-│  Receives JSON response at webhook_url endpoint                             │
-│  Updates UI with response data                                              │
+│  Polls GET /response/<token> until response is available                  │
+│  Updates UI with response data when received                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -483,6 +494,12 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 - **Role**: Data layer for canvas operations
 - **Storage**: Firestore (canvas state), GCS (snapshots)
 - **Configuration**: `setting.json`
+- **Environment Variables**:
+  - `GCS_CANVAS_BUCKET` (from Secret Manager) - GCS bucket name for snapshots
+  - `USER_MANAGER_URL` (from Secret Manager) - User manager service URL
+  - `FIRESTORE_DATABASE` - Firestore database ID
+  - `GCP_PROJECT_ID` - GCP project ID
+  - `ENVIRONMENT` - Environment name (dev/stage/prod)
 
 #### User Manager
 
@@ -507,6 +524,19 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 - **Authentication**: Public (`--allow-unauthenticated`)
 - **Role**: Web interface for canvas
 - **Pages**: Login, Canvas, Session (legacy)
+- **Endpoints**:
+  - `GET /` - Canvas page
+  - `GET /login` - Login page
+  - `POST /webhook` - Receives webhook responses from processors
+  - `GET /response/<token>` - Returns stored response for polling
+- **Response Handling**: Hybrid webhook + polling system
+  - Processors send responses to `/webhook` endpoint
+  - Frontend stores responses in memory with token as key
+  - Client polls `/response/<token>` every 500ms-1000ms until response is available
+- **Environment Variables**:
+  - `GATEWAY_URL` - API Gateway URL
+  - `AUTH_SERVICE_URL` - Auth service URL
+  - `WEB_FRONTEND_URL` - Self URL (dynamically built if not set)
 
 #### Discord Registrar
 
@@ -579,6 +609,16 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 │  │ DISCORD_         │  │ DISCORD_CLIENT_  │             │
 │  │ APPLICATION_ID   │  │ ID/SECRET        │             │
 │  └──────────────────┘  └──────────────────┘             │
+│                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐             │
+│  │ GCS_CANVAS_      │  │ USER_MANAGER_    │             │
+│  │ BUCKET           │  │ URL              │             │
+│  └──────────────────┘  └──────────────────┘             │
+│                                                         │
+│  ┌──────────────────┐  ┌──────────────────┐             │
+│  │ CANVAS_SERVICE_  │  │ AUTH_SERVICE_    │             │
+│  │ URL              │  │ URL              │             │
+│  └──────────────────┘  └──────────────────┘             │
 └─────────────────────────────────────────────────────────┘
             │                    │                    │
             │                    │                    │
@@ -588,6 +628,17 @@ All processors are Cloud Functions Gen2 triggered by Pub/Sub via Eventarc.
 │  All secrets     │  │  BOT_TOKEN       │  │  BOT_TOKEN       │
 │                  │  │  APP_ID          │  │  (webhooks)      │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
+            │                    │                    │
+            │                    │                    │
+            ▼                    ▼                    ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  CANVAS-SERVICE  │  │  AUTH-SERVICE    │  │  WEB-FRONTEND    │
+│  GCS_CANVAS_     │  │  CLIENT_ID/      │  │  GATEWAY_URL     │
+│  BUCKET          │  │  SECRET          │  │  AUTH_SERVICE_  │
+│  USER_MANAGER_   │  │  REDIRECT_URI    │  │  URL             │
+│  URL             │  │  WEB_FRONTEND_   │  └──────────────────┘
+└──────────────────┘  │  URL             │
+                      └──────────────────┘
 ```
 
 ## Available Endpoints

@@ -34,7 +34,11 @@ def get_canvas_client():
     """Get or create CanvasClient instance."""
     global _canvas_client
     if _canvas_client is None:
-        _canvas_client = CanvasClient()
+        try:
+            _canvas_client = CanvasClient()
+        except Exception as exc:
+            logger.error("Cannot instantiate CanvasClient", error=exc)
+            return None
     return _canvas_client
 
 def get_user_client() -> Optional[UserManagementClient]:
@@ -67,7 +71,7 @@ def handle_draw(interaction: dict = None):
     correlation_id = interaction.get('correlation_id') if interaction else None
 
     canvas_client = get_canvas_client()
-    if not canvas_client.base_url:
+    if not canvas_client:
         return create_error_embed("Service unavailable", "Canvas service is not configured.")
 
     user_id, username, avatar_url = extract_user_info(interaction)
